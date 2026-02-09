@@ -1,0 +1,4 @@
+numpy
+selenium
+undetected-chromedriver
+pyinstaller>=6.0

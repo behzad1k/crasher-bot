@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+*.pyo
+build/
+dist/
+*.spec
+*.egg-info/
+.eggs/
+*.db
+*.log
+bot_config.json
+.venv/
+venv/

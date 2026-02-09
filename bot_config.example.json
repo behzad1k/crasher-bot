@@ -1,0 +1,34 @@
+{
+  "username": "your_username",
+  "password": "your_password",
+  "game_url": "https://example.com/game",
+  "max_loss": 100000000,
+  "import_recent_on_new_session": true,
+  "strategies": [
+    {
+      "name": "Conservative",
+      "enabled": true,
+      "base_bet": 1000,
+      "auto_cashout": 2.0,
+      "trigger_threshold": 2.0,
+      "trigger_count": 5,
+      "max_consecutive_losses": 10,
+      "bet_multiplier": 2.0
+    }
+  ],
+  "secondary_strategy": {
+    "enabled": false,
+    "base_bet": 1000,
+    "auto_cashout": 2.0,
+    "max_consecutive_losses": 10,
+    "bet_multiplier": 2.0
+  },
+  "tertiary_strategy": {
+    "enabled": false,
+    "base_bet": 1000,
+    "auto_cashout": 2.0,
+    "max_consecutive_losses": 10,
+    "max_losses_in_window": 7,
+    "loss_check_window": 10
+  }
+}

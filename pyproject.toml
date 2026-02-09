@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "crasher-bot"
+version = "2.0.0"
+description = "Multi-strategy crash game bot with GUI"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "selenium",
+    "undetected-chromedriver",
+]
+
+[project.optional-dependencies]
+build = ["pyinstaller>=6.0"]
+
+[project.scripts]
+crasher-cli = "crasher_bot.cli:main"
+crasher-gui = "crasher_bot.gui:main"
