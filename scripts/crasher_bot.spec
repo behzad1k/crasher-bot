@@ -88,6 +88,7 @@ else:
         a.zipfiles,
         a.datas,
         [],
+        icon=str(ROOT / 'assets' / 'icon.ico'),
         name='CrashOut',
         debug=False,
         bootloader_ignore_signals=False,
