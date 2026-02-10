@@ -174,7 +174,9 @@ class BotEngine:
                 if active_name:
                     strat = self.primaries[active_name]
                     if strat.waiting_for_result:
-                        active_name = self._handle_primary_result(strat, mult, active_name)
+                        active_name = self._handle_primary_result(
+                            strat, mult, active_name
+                        )
 
                 # Activate new primary (if idle)
                 if not active_name and not self.strategy_active and self.autopilot:
@@ -200,7 +202,12 @@ class BotEngine:
             if len(recent) != s.trigger_count:
                 continue
             if all(m < s.trigger_threshold for m in recent):
-                logger.info("[%s] TRIGGER – last %d under %sx", name, s.trigger_count, s.trigger_threshold)
+                logger.info(
+                    "[%s] TRIGGER – last %d under %sx",
+                    name,
+                    s.trigger_count,
+                    s.trigger_threshold,
+                )
                 s.is_active = True
                 self.strategy_active = True
                 if not self.driver.setup_auto_cashout(s.auto_cashout):
@@ -219,13 +226,17 @@ class BotEngine:
                     self.strategy_active = False
         return None
 
-    def _handle_primary_result(self, s: StrategyState, mult: float, active_name: str) -> Optional[str]:
+    def _handle_primary_result(
+        self, s: StrategyState, mult: float, active_name: str
+    ) -> Optional[str]:
         if mult >= s.auto_cashout:
             profit = s.current_bet * (s.auto_cashout - 1)
             s.total_profit += profit
             self.total_profit += profit
             self.db.add_bet(s.name, s.current_bet, "win", mult, profit)
-            logger.info("[%s] WIN +%.0f (total: %.0f)", s.name, profit, self.total_profit)
+            logger.info(
+                "[%s] WIN +%.0f (total: %.0f)", s.name, profit, self.total_profit
+            )
             s.reset()
             self.strategy_active = False
             return None
@@ -238,7 +249,10 @@ class BotEngine:
             s.current_bet = s.next_bet()
             logger.info(
                 "[%s] LOSS -%.0f (streak: %d, next: %.0f)",
-                s.name, loss, s.consecutive_losses, s.current_bet,
+                s.name,
+                loss,
+                s.consecutive_losses,
+                s.current_bet,
             )
             s.waiting_for_result = False
             time.sleep(1)
@@ -271,28 +285,38 @@ class BotEngine:
                     sec.stop_monitoring()
                     return
                 above = sum(1 for m in last5 if m >= 2.0)
-                if above >= 3 and not sec.is_active and not self.strategy_active and self.autopilot:
+                if (
+                    above >= 3
+                    and not sec.is_active
+                    and not self.strategy_active
+                    and self.autopilot
+                ):
                     logger.info("[Secondary] Activating (3+/5 above 2x)")
-                    sec.is_active = True
-                    self.strategy_active = True
-                    if not self.driver.setup_auto_cashout(sec.auto_cashout):
-                        sec.reset()
-                        sec.stop_monitoring()
-                        self.strategy_active = False
-                        return
-                    time.sleep(2)
-                    bet = sec.next_bet()
-                    if self.driver.place_bet(bet):
-                        sec.current_bet = bet
-                        sec.waiting_for_result = True
-                    else:
-                        sec.reset()
-                        sec.stop_monitoring()
-                        self.strategy_active = False
+                    self._activate_secondary_betting()
 
             if sec.rounds_monitored >= 21:
                 logger.info("[Secondary] 21 rounds – stopping monitor")
                 sec.stop_monitoring()
+
+    def _activate_secondary_betting(self):
+        """Activate the secondary strategy and place the first bet."""
+        sec = self.secondary
+        sec.is_active = True
+        self.strategy_active = True
+        if not self.driver.setup_auto_cashout(sec.auto_cashout):
+            sec.reset()
+            sec.stop_monitoring()
+            self.strategy_active = False
+            return
+        time.sleep(2)
+        bet = sec.next_bet()
+        if self.driver.place_bet(bet):
+            sec.current_bet = bet
+            sec.waiting_for_result = True
+        else:
+            sec.reset()
+            sec.stop_monitoring()
+            self.strategy_active = False
 
     def _secondary_result(self, mult: float):
         sec = self.secondary
@@ -315,7 +339,9 @@ class BotEngine:
             self.db.add_bet(sec.name, sec.current_bet, "loss", mult, -loss)
             sec.consecutive_losses += 1
             sec.current_bet = sec.next_bet()
-            logger.info("[Secondary] LOSS -%.0f (streak: %d)", loss, sec.consecutive_losses)
+            logger.info(
+                "[Secondary] LOSS -%.0f (streak: %d)", loss, sec.consecutive_losses
+            )
 
             # Cold streak while betting
             if sec.monitoring and len(sec.monitoring_history) >= 5:
@@ -369,6 +395,20 @@ class BotEngine:
                 logger.info("[Secondary] Signal – starting 21-round monitor")
             self.secondary.start_monitoring(last5)
             self.tracker.mark_signal()
+
+            # Immediately check if the last 5 rounds already qualify for activation
+            if (
+                not self.secondary.is_active
+                and not self.strategy_active
+                and self.autopilot
+                and len(last5) >= 5
+            ):
+                above = sum(1 for m in last5 if m >= 2.0)
+                if above >= 3:
+                    logger.info(
+                        "[Secondary] Instant activation (3+/5 above 2x from signal)"
+                    )
+                    self._activate_secondary_betting()
 
     # ── Commands from GUI ───────────────────────────────────────────
 
@@ -437,7 +477,11 @@ class BotEngine:
             if s.consecutive_losses >= s.max_consecutive_losses:
                 logger.warning("[%s] Max consecutive losses", s.name)
                 return False
-        if self.secondary and self.secondary.consecutive_losses >= self.secondary.max_consecutive_losses:
+        if (
+            self.secondary
+            and self.secondary.consecutive_losses
+            >= self.secondary.max_consecutive_losses
+        ):
             logger.warning("[Secondary] Max consecutive losses")
             return False
         return True
@@ -453,7 +497,12 @@ class BotEngine:
         logger.info("SESSION SUMMARY")
         logger.info("  Total P/L: %.0f", self.total_profit)
         for name, s in self.primaries.items():
-            logger.info("  [%s] P/L: %.0f  Losses: %d", name, s.total_profit, s.consecutive_losses)
+            logger.info(
+                "  [%s] P/L: %.0f  Losses: %d",
+                name,
+                s.total_profit,
+                s.consecutive_losses,
+            )
         if self.secondary:
             logger.info(
                 "  [Secondary] P/L: %.0f  Losses: %d",
@@ -474,8 +523,16 @@ class BotEngine:
         for name, s in self.primaries.items():
             logger.info(
                 "  [%s] trigger=%d×<%sx  cashout=%sx",
-                name, s.trigger_count, s.trigger_threshold, s.auto_cashout,
+                name,
+                s.trigger_count,
+                s.trigger_threshold,
+                s.auto_cashout,
             )
         if self.secondary:
-            logger.info("  [Secondary] signal-based, cashout=%sx", self.secondary.auto_cashout)
+            logger.info(
+                "  [Secondary] signal-based, cashout=%sx", self.secondary.auto_cashout
+            )
         logger.info("=" * 60)
+
+
+# 925,000

@@ -57,6 +57,7 @@ class Application:
         try:
             with open(self.config_path) as f:
                 import json
+
                 return json.load(f)
         except (FileNotFoundError, Exception) as e:
             logger.warning("Config load error: %s", e)
@@ -65,6 +66,7 @@ class Application:
     def _save_config(self) -> bool:
         try:
             import json
+
             with open(self.config_path, "w") as f:
                 json.dump(self.config, f, indent=2)
             return True
@@ -102,19 +104,53 @@ class Application:
         self.root.configure(bg=Theme.BG_DARK)
         s.configure("TFrame", background=Theme.BG_DARK)
         s.configure("Card.TFrame", background=Theme.BG_LIGHT, relief=tk.RAISED)
-        s.configure("TLabel", background=Theme.BG_DARK, foreground=Theme.FG_PRIMARY, font=("Segoe UI", 10))
-        s.configure("Heading.TLabel", background=Theme.BG_LIGHT, foreground=Theme.FG_PRIMARY, font=("Segoe UI", 11, "bold"))
+        s.configure(
+            "TLabel",
+            background=Theme.BG_DARK,
+            foreground=Theme.FG_PRIMARY,
+            font=("Segoe UI", 10),
+        )
+        s.configure(
+            "Heading.TLabel",
+            background=Theme.BG_LIGHT,
+            foreground=Theme.FG_PRIMARY,
+            font=("Segoe UI", 11, "bold"),
+        )
         s.configure("TButton", borderwidth=0, focuscolor="none", font=("Segoe UI", 10))
         s.map("TButton", background=[("active", Theme.BG_HOVER)])
         s.configure("Success.TButton", background=Theme.ACCENT_SUCCESS)
         s.configure("Danger.TButton", background=Theme.ACCENT_DANGER)
         s.configure("Warning.TButton", background=Theme.ACCENT_WARNING)
-        s.configure("TEntry", fieldbackground=Theme.BG_MEDIUM, foreground=Theme.FG_PRIMARY, insertcolor=Theme.FG_PRIMARY)
+        s.configure(
+            "TEntry",
+            fieldbackground=Theme.BG_MEDIUM,
+            foreground=Theme.FG_PRIMARY,
+            insertcolor=Theme.FG_PRIMARY,
+        )
         s.configure("TNotebook", background=Theme.BG_DARK, borderwidth=0)
-        s.configure("TNotebook.Tab", background=Theme.BG_MEDIUM, foreground=Theme.FG_SECONDARY, padding=[20, 10], font=("Segoe UI", 10))
-        s.map("TNotebook.Tab", background=[("selected", Theme.BG_LIGHT)], foreground=[("selected", Theme.FG_PRIMARY)])
-        s.configure("TCheckbutton", background=Theme.BG_DARK, foreground=Theme.FG_PRIMARY, font=("Segoe UI", 10))
-        s.configure("Switch.TCheckbutton", background=Theme.BG_LIGHT, foreground=Theme.FG_PRIMARY)
+        s.configure(
+            "TNotebook.Tab",
+            background=Theme.BG_MEDIUM,
+            foreground=Theme.FG_SECONDARY,
+            padding=[20, 10],
+            font=("Segoe UI", 10),
+        )
+        s.map(
+            "TNotebook.Tab",
+            background=[("selected", Theme.BG_LIGHT)],
+            foreground=[("selected", Theme.FG_PRIMARY)],
+        )
+        s.configure(
+            "TCheckbutton",
+            background=Theme.BG_DARK,
+            foreground=Theme.FG_PRIMARY,
+            font=("Segoe UI", 10),
+        )
+        s.configure(
+            "Switch.TCheckbutton",
+            background=Theme.BG_LIGHT,
+            foreground=Theme.FG_PRIMARY,
+        )
 
     # ── UI Build ────────────────────────────────────────────────────
 
@@ -132,26 +168,56 @@ class Application:
 
         card = ttk.Frame(tab, style="Card.TFrame")
         card.pack(fill=tk.X, padx=20, pady=20)
-        ttk.Label(card, text="Bot Control", font=("Segoe UI", 14, "bold"), style="Heading.TLabel").pack(pady=10)
+        ttk.Label(
+            card,
+            text="Bot Control",
+            font=("Segoe UI", 14, "bold"),
+            style="Heading.TLabel",
+        ).pack(pady=10)
 
         bf = ttk.Frame(card, style="Card.TFrame")
         bf.pack(pady=10)
-        self._start_btn = ttk.Button(bf, text="Start Bot", command=self._toggle_bot, style="Success.TButton", width=20)
+        self._start_btn = ttk.Button(
+            bf,
+            text="Start Bot",
+            command=self._toggle_bot,
+            style="Success.TButton",
+            width=20,
+        )
         self._start_btn.pack(side=tk.LEFT, padx=5)
-        ttk.Button(bf, text="Stop Active Strategy", command=self._force_stop, style="Warning.TButton", width=20).pack(side=tk.LEFT, padx=5)
+        ttk.Button(
+            bf,
+            text="Stop Active Strategy",
+            command=self._force_stop,
+            style="Warning.TButton",
+            width=20,
+        ).pack(side=tk.LEFT, padx=5)
 
-        self._status = ttk.Label(card, text="Status: Stopped", font=("Segoe UI", 11), style="Heading.TLabel")
+        self._status = ttk.Label(
+            card, text="Status: Stopped", font=("Segoe UI", 11), style="Heading.TLabel"
+        )
         self._status.pack(pady=5)
 
         af = ttk.Frame(card, style="Card.TFrame")
         af.pack(pady=10)
         self._autopilot_var = tk.BooleanVar(value=True)
-        ttk.Checkbutton(af, text="Auto-Pilot (automatic betting)", variable=self._autopilot_var, command=self._toggle_autopilot, style="Switch.TCheckbutton").pack(pady=5)
+        ttk.Checkbutton(
+            af,
+            text="Auto-Pilot (automatic betting)",
+            variable=self._autopilot_var,
+            command=self._toggle_autopilot,
+            style="Switch.TCheckbutton",
+        ).pack(pady=5)
 
         # Manual activation
         mf = ttk.Frame(tab, style="Card.TFrame")
         mf.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
-        ttk.Label(mf, text="Manual Strategy Activation", font=("Segoe UI", 14, "bold"), style="Heading.TLabel").pack(pady=10)
+        ttk.Label(
+            mf,
+            text="Manual Strategy Activation",
+            font=("Segoe UI", 14, "bold"),
+            style="Heading.TLabel",
+        ).pack(pady=10)
         self._manual_frame = ttk.Frame(mf, style="Card.TFrame")
         self._manual_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         self._refresh_manual_buttons()
@@ -160,50 +226,148 @@ class Application:
         tab = ttk.Frame(nb)
         nb.add(tab, text="Strategies")
 
+        # Apply button pinned at the bottom, always visible
+        bottom = ttk.Frame(tab)
+        bottom.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
+        ttk.Button(
+            bottom,
+            text="Apply Changes",
+            command=self._apply_changes,
+            style="Success.TButton",
+            width=20,
+        ).pack()
+
         inner = ttk.Notebook(tab)
         inner.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Primary
+        # Primary (scrollable)
         pt = ttk.Frame(inner)
         inner.add(pt, text="Primary")
         hdr = ttk.Frame(pt)
         hdr.pack(fill=tk.X, padx=20, pady=10)
-        ttk.Label(hdr, text="Primary Strategies", font=("Segoe UI", 12, "bold"), style="TLabel").pack(side=tk.LEFT)
-        ttk.Button(hdr, text="Add Strategy", command=self._add_primary, style="Success.TButton").pack(side=tk.RIGHT)
-        self._primary_frame = ttk.Frame(pt)
-        self._primary_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        ttk.Label(
+            hdr,
+            text="Primary Strategies",
+            font=("Segoe UI", 12, "bold"),
+            style="TLabel",
+        ).pack(side=tk.LEFT)
+        ttk.Button(
+            hdr, text="Add Strategy", command=self._add_primary, style="Success.TButton"
+        ).pack(side=tk.RIGHT)
+
+        # Scrollable container for primary strategy cards
+        primary_canvas = tk.Canvas(pt, bg=Theme.BG_DARK, highlightthickness=0)
+        primary_scrollbar = ttk.Scrollbar(
+            pt, orient=tk.VERTICAL, command=primary_canvas.yview
+        )
+        self._primary_frame = ttk.Frame(primary_canvas)
+
+        self._primary_frame.bind(
+            "<Configure>",
+            lambda e: primary_canvas.configure(scrollregion=primary_canvas.bbox("all")),
+        )
+        primary_canvas.create_window(
+            (0, 0), window=self._primary_frame, anchor=tk.NW, tags="inner"
+        )
+        primary_canvas.bind(
+            "<Configure>",
+            lambda e: primary_canvas.itemconfigure("inner", width=e.width),
+        )
+        primary_canvas.configure(yscrollcommand=primary_scrollbar.set)
+
+        primary_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        primary_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20, pady=10)
+
+        # Enable mousewheel scrolling on the primary canvas
+        def _on_primary_mousewheel(event):
+            primary_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+
+        primary_canvas.bind("<MouseWheel>", _on_primary_mousewheel)
+        primary_canvas.bind(
+            "<Button-4>", lambda e: primary_canvas.yview_scroll(-3, "units")
+        )
+        primary_canvas.bind(
+            "<Button-5>", lambda e: primary_canvas.yview_scroll(3, "units")
+        )
+
+        self._primary_canvas = primary_canvas
         self._refresh_primary_cards()
 
         # Secondary
         st = ttk.Frame(inner)
         inner.add(st, text="Secondary")
-        sec_data = self.config.get("secondary_strategy", {"enabled": False, "base_bet": 1000, "auto_cashout": 2.0, "max_consecutive_losses": 10, "bet_multiplier": 2.0})
+        sec_data = self.config.get(
+            "secondary_strategy",
+            {
+                "enabled": False,
+                "base_bet": 1000,
+                "auto_cashout": 2.0,
+                "max_consecutive_losses": 10,
+                "bet_multiplier": 2.0,
+            },
+        )
         self._secondary_card = SimpleConfigCard(
-            st, "Secondary Strategy",
+            st,
+            "Secondary Strategy",
             "Signal-based with 21-round monitoring. Activates when 3+ of last 5 rounds are above 2x.",
-            [("base_bet", "Base Bet:", float), ("auto_cashout", "Auto Cashout:", float), ("max_consecutive_losses", "Max Losses:", int), ("bet_multiplier", "Bet Multiplier:", float)],
+            [
+                ("base_bet", "Base Bet:", float),
+                ("auto_cashout", "Auto Cashout:", float),
+                ("max_consecutive_losses", "Max Losses:", int),
+                ("bet_multiplier", "Bet Multiplier:", float),
+            ],
             sec_data,
         )
 
         # Tertiary
         tt = ttk.Frame(inner)
         inner.add(tt, text="Tertiary")
-        ter_data = self.config.get("tertiary_strategy", {"enabled": False, "base_bet": 1000, "auto_cashout": 2.0, "max_consecutive_losses": 10, "max_losses_in_window": 7, "loss_check_window": 10})
+        ter_data = self.config.get(
+            "tertiary_strategy",
+            {
+                "enabled": False,
+                "base_bet": 1000,
+                "auto_cashout": 2.0,
+                "max_consecutive_losses": 10,
+                "max_losses_in_window": 7,
+                "loss_check_window": 10,
+            },
+        )
         self._tertiary_card = SimpleConfigCard(
-            tt, "Tertiary Strategy",
+            tt,
+            "Tertiary Strategy",
             "Signal-based instant betting. Starts immediately if in hotstreak.",
-            [("base_bet", "Base Bet:", float), ("auto_cashout", "Auto Cashout:", float), ("max_consecutive_losses", "Max Losses:", int), ("max_losses_in_window", "Max Losses in Window:", int), ("loss_check_window", "Window Size:", int)],
+            [
+                ("base_bet", "Base Bet:", float),
+                ("auto_cashout", "Auto Cashout:", float),
+                ("max_consecutive_losses", "Max Losses:", int),
+                ("max_losses_in_window", "Max Losses in Window:", int),
+                ("loss_check_window", "Window Size:", int),
+            ],
             ter_data,
         )
-
-        ttk.Button(tab, text="Apply Changes", command=self._apply_changes, style="Success.TButton", width=20).pack(pady=10)
 
     def _build_logs_tab(self, nb: ttk.Notebook):
         tab = ttk.Frame(nb)
         nb.add(tab, text="Logs")
-        self._log_widget = scrolledtext.ScrolledText(tab, bg=Theme.BG_MEDIUM, fg=Theme.FG_PRIMARY, font=("Consolas", 9), wrap=tk.WORD, state=tk.DISABLED)
+        self._log_widget = scrolledtext.ScrolledText(
+            tab,
+            bg=Theme.BG_MEDIUM,
+            fg=Theme.FG_PRIMARY,
+            font=("Consolas", 9),
+            wrap=tk.WORD,
+            state=tk.DISABLED,
+        )
         self._log_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        ttk.Button(tab, text="Clear", command=lambda: (self._log_widget.configure(state=tk.NORMAL), self._log_widget.delete(1.0, tk.END), self._log_widget.configure(state=tk.DISABLED))).pack(pady=5)
+        ttk.Button(
+            tab,
+            text="Clear",
+            command=lambda: (
+                self._log_widget.configure(state=tk.NORMAL),
+                self._log_widget.delete(1.0, tk.END),
+                self._log_widget.configure(state=tk.DISABLED),
+            ),
+        ).pack(pady=5)
 
     def _build_history_tab(self, nb: ttk.Notebook):
         tab = ttk.Frame(nb)
@@ -213,7 +377,9 @@ class Application:
         header = ttk.Frame(tab, style="Card.TFrame")
         header.pack(fill=tk.X, padx=20, pady=(10, 0))
 
-        ttk.Label(header, text="Session:", style="Heading.TLabel").pack(side=tk.LEFT, padx=(10, 5), pady=8)
+        ttk.Label(header, text="Session:", style="Heading.TLabel").pack(
+            side=tk.LEFT, padx=(10, 5), pady=8
+        )
 
         self._session_var = tk.StringVar()
         self._session_combo = ttk.Combobox(
@@ -224,16 +390,24 @@ class Application:
             font=("Segoe UI", 10),
         )
         self._session_combo.pack(side=tk.LEFT, padx=5, pady=8)
-        self._session_combo.bind("<<ComboboxSelected>>", lambda _: self._on_session_selected())
+        self._session_combo.bind(
+            "<<ComboboxSelected>>", lambda _: self._on_session_selected()
+        )
 
-        ttk.Button(header, text="Refresh", command=self._refresh_session_list, width=10).pack(side=tk.LEFT, padx=5, pady=8)
-        ttk.Button(header, text="Clear View", command=self._clear_history_view, width=10).pack(side=tk.RIGHT, padx=10, pady=8)
+        ttk.Button(
+            header, text="Refresh", command=self._refresh_session_list, width=10
+        ).pack(side=tk.LEFT, padx=5, pady=8)
+        ttk.Button(
+            header, text="Clear View", command=self._clear_history_view, width=10
+        ).pack(side=tk.RIGHT, padx=10, pady=8)
 
         # ── Stats bar ──────────────────────────────────────────────
         stats = ttk.Frame(tab, style="Card.TFrame")
         stats.pack(fill=tk.X, padx=20, pady=(5, 0))
 
-        self._history_stats = ttk.Label(stats, text="", style="Heading.TLabel", foreground=Theme.FG_SECONDARY)
+        self._history_stats = ttk.Label(
+            stats, text="", style="Heading.TLabel", foreground=Theme.FG_SECONDARY
+        )
         self._history_stats.pack(side=tk.LEFT, padx=10, pady=5)
 
         # ── Multiplier display with scrollbar ──────────────────────
@@ -375,7 +549,7 @@ class Application:
             def _on_mult(m):
                 self._mult_display.add(m)
                 # Auto-refresh session list once (so the new/continued session appears)
-                if not hasattr(self, '_session_refreshed_for_run'):
+                if not hasattr(self, "_session_refreshed_for_run"):
                     self._session_refreshed_for_run = True
                     self._refresh_session_list()
 
@@ -386,9 +560,14 @@ class Application:
             logger.exception("Bot thread error")
         finally:
             self.bot_running = False
-            if hasattr(self, '_session_refreshed_for_run'):
+            if hasattr(self, "_session_refreshed_for_run"):
                 del self._session_refreshed_for_run
-            self.root.after(0, lambda: self._start_btn.configure(text="Start Bot", style="Success.TButton"))
+            self.root.after(
+                0,
+                lambda: self._start_btn.configure(
+                    text="Start Bot", style="Success.TButton"
+                ),
+            )
             self.root.after(0, lambda: self._status.configure(text="Status: Stopped"))
             self.root.after(0, self._refresh_session_list)
 
@@ -408,9 +587,19 @@ class Application:
             w.destroy()
         for i, s in enumerate(self.config.get("strategies", [])):
             if s.get("enabled", True):
-                ttk.Button(self._manual_frame, text=f"Activate: {s.get('name', f'Strategy {i+1}')}", command=lambda idx=i: self._activate_primary(idx), width=40).pack(pady=3, anchor=tk.W)
+                ttk.Button(
+                    self._manual_frame,
+                    text=f"Activate: {s.get('name', f'Strategy {i + 1}')}",
+                    command=lambda idx=i: self._activate_primary(idx),
+                    width=40,
+                ).pack(pady=3, anchor=tk.W)
         if self.config.get("secondary_strategy", {}).get("enabled"):
-            ttk.Button(self._manual_frame, text="Activate: Secondary", command=self._activate_secondary, width=40).pack(pady=3, anchor=tk.W)
+            ttk.Button(
+                self._manual_frame,
+                text="Activate: Secondary",
+                command=self._activate_secondary,
+                width=40,
+            ).pack(pady=3, anchor=tk.W)
 
     def _activate_primary(self, idx: int):
         if not self.bot:
@@ -435,16 +624,27 @@ class Application:
             w.destroy()
         self._primary_cards = []
         for i, s in enumerate(self.config.get("strategies", [])):
-            card = StrategyCard(self._primary_frame, s, on_delete=lambda idx=i: self._delete_primary(idx))
+            card = StrategyCard(
+                self._primary_frame,
+                s,
+                on_delete=lambda idx=i: self._delete_primary(idx),
+            )
             self._primary_cards.append(card)
 
     def _add_primary(self):
         n = len(self.config.get("strategies", [])) + 1
-        self.config.setdefault("strategies", []).append({
-            "name": f"Strategy {n}", "enabled": True, "base_bet": 1000,
-            "auto_cashout": 2.0, "trigger_threshold": 2.0, "trigger_count": 5,
-            "max_consecutive_losses": 10, "bet_multiplier": 2.0,
-        })
+        self.config.setdefault("strategies", []).append(
+            {
+                "name": f"Strategy {n}",
+                "enabled": True,
+                "base_bet": 1000,
+                "auto_cashout": 2.0,
+                "trigger_threshold": 2.0,
+                "trigger_count": 5,
+                "max_consecutive_losses": 10,
+                "bet_multiplier": 2.0,
+            }
+        )
         self._refresh_primary_cards()
 
     def _delete_primary(self, idx: int):
@@ -459,7 +659,9 @@ class Application:
         if self._save_config():
             self._refresh_manual_buttons()
             if self.bot and self.bot_running:
-                self.bot.command_queue.put({"action": "reload_config", "config": self.config})
+                self.bot.command_queue.put(
+                    {"action": "reload_config", "config": self.config}
+                )
             messagebox.showinfo("Success", "Changes applied!")
 
     # ── Lifecycle ───────────────────────────────────────────────────
