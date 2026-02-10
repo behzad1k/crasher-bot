@@ -331,6 +331,8 @@ class Application:
                 "max_consecutive_losses": 10,
                 "max_losses_in_window": 7,
                 "loss_check_window": 10,
+                "bet_multiplier": 2.0,
+                "stop_profit_count": 0,
             },
         )
         self._tertiary_card = SimpleConfigCard(
@@ -343,6 +345,8 @@ class Application:
                 ("max_consecutive_losses", "Max Losses:", int),
                 ("max_losses_in_window", "Max Losses in Window:", int),
                 ("loss_check_window", "Window Size:", int),
+                ("bet_multiplier", "Bet Multiplier:", float),
+                ("stop_profit_count", "Stop After Wins (0=off):", int),
             ],
             ter_data,
         )

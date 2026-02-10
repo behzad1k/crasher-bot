@@ -39,6 +39,8 @@ class TertiaryStrategyConfig:
     max_consecutive_losses: int = 10
     max_losses_in_window: int = 7
     loss_check_window: int = 10
+    bet_multiplier: float = 2.0
+    stop_profit_count: int = 0
     enabled: bool = False
 
 
@@ -61,9 +63,7 @@ class BotConfig:
 
     @classmethod
     def from_dict(cls, raw: Dict[str, Any]) -> "BotConfig":
-        strategies = [
-            PrimaryStrategyConfig(**s) for s in raw.get("strategies", [])
-        ]
+        strategies = [PrimaryStrategyConfig(**s) for s in raw.get("strategies", [])]
 
         secondary = None
         if "secondary_strategy" in raw and raw["secondary_strategy"].get("enabled"):
@@ -98,16 +98,18 @@ class BotConfig:
             "strategies": [],
         }
         for s in self.strategies:
-            result["strategies"].append({
-                "name": s.name,
-                "base_bet": s.base_bet,
-                "auto_cashout": s.auto_cashout,
-                "trigger_threshold": s.trigger_threshold,
-                "trigger_count": s.trigger_count,
-                "max_consecutive_losses": s.max_consecutive_losses,
-                "bet_multiplier": s.bet_multiplier,
-                "enabled": s.enabled,
-            })
+            result["strategies"].append(
+                {
+                    "name": s.name,
+                    "base_bet": s.base_bet,
+                    "auto_cashout": s.auto_cashout,
+                    "trigger_threshold": s.trigger_threshold,
+                    "trigger_count": s.trigger_count,
+                    "max_consecutive_losses": s.max_consecutive_losses,
+                    "bet_multiplier": s.bet_multiplier,
+                    "enabled": s.enabled,
+                }
+            )
         if self.secondary_strategy:
             result["secondary_strategy"] = {
                 "base_bet": self.secondary_strategy.base_bet,
@@ -123,6 +125,8 @@ class BotConfig:
                 "max_consecutive_losses": self.tertiary_strategy.max_consecutive_losses,
                 "max_losses_in_window": self.tertiary_strategy.max_losses_in_window,
                 "loss_check_window": self.tertiary_strategy.loss_check_window,
+                "bet_multiplier": self.tertiary_strategy.bet_multiplier,
+                "stop_profit_count": self.tertiary_strategy.stop_profit_count,
                 "enabled": self.tertiary_strategy.enabled,
             }
         return result
