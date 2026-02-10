@@ -1,23 +1,26 @@
 """CLI entry point – runs the bot without GUI."""
 
-import logging
+import multiprocessing
 import sys
 
-from crasher_bot.config import BotConfig
-from crasher_bot.core.engine import BotEngine
+if __name__ == "__main__":
+    multiprocessing.freeze_support()
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.FileHandler("crasher_bot.log", encoding="utf-8"),
-        logging.StreamHandler(),
-    ],
-)
+    import logging
 
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        handlers=[
+            logging.FileHandler("crasher_bot.log", encoding="utf-8"),
+            logging.StreamHandler(),
+        ],
+    )
 
-def main():
-    config_path = sys.argv[1] if len(sys.argv) > 1 else "./bot_config.json"
+    from crasher_bot.config import BotConfig, get_default_config_path
+    from crasher_bot.core.engine import BotEngine
+
+    config_path = sys.argv[1] if len(sys.argv) > 1 else get_default_config_path()
     try:
         cfg = BotConfig.from_file(config_path)
         errors = cfg.validate()
@@ -30,7 +33,3 @@ def main():
     except FileNotFoundError:
         print(f"Config file not found: {config_path}")
         sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()

@@ -8,7 +8,7 @@ from datetime import datetime
 from tkinter import messagebox, scrolledtext, ttk
 from typing import Dict, List, Optional
 
-from crasher_bot.config import BotConfig
+from crasher_bot.config import BotConfig, get_default_config_path
 from crasher_bot.core import Database
 from crasher_bot.core.engine import BotEngine
 from crasher_bot.ui import Theme
@@ -29,7 +29,7 @@ class _QueueLogHandler(logging.Handler):
 class Application:
     """Tkinter GUI for the crasher bot."""
 
-    def __init__(self, config_path: str = "./bot_config.json"):
+    def __init__(self, config_path: str = ""):
         self.config_path = config_path
         self.config = self._load_config()
 

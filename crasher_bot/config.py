@@ -2,13 +2,40 @@
 
 import json
 import logging
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_CONFIG_PATH = "./bot_config.json"
+
+DEFAULT_CONFIG_PATH = None  # Resolved lazily
+
+
+def get_default_config_path() -> str:
+    """Resolve config path, checking multiple locations for bundled apps."""
+    config_name = "bot_config.json"
+
+    if getattr(sys, "frozen", False):
+        user_config = Path.home() / ".crasher_bot" / config_name
+        if user_config.exists():
+            return str(user_config)
+
+        bundled = Path(getattr(sys, "_MEIPASS", ".")) / config_name
+        if bundled.exists():
+            user_config.parent.mkdir(parents=True, exist_ok=True)
+            import shutil
+
+            shutil.copy2(bundled, user_config)
+            return str(user_config)
+
+        return str(user_config)
+    else:
+        return str(Path(".") / config_name)
+
+
+DEFAULT_CONFIG_PATH = ""
 
 
 @dataclass

@@ -2,12 +2,25 @@
 
 import logging
 import sqlite3
+import sys
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-DB_PATH = "./crasher_data.db"
+
+def get_db_path() -> str:
+    """Resolve database path to a writable location."""
+    if getattr(sys, "frozen", False):
+        db_dir = Path.home() / ".crasher_bot"
+        db_dir.mkdir(parents=True, exist_ok=True)
+        return str(db_dir / "crasher_data.db")
+    else:
+        return "./crasher_data.db"
+
+
+DB_PATH = get_db_path()
 
 
 class Database:
@@ -167,7 +180,11 @@ class Database:
         sec_per = total_sec / max(len(multipliers) - 1, 1)
 
         for i, mult in enumerate(multipliers):
-            ts = end_time if i == len(multipliers) - 1 else start_time + timedelta(seconds=sec_per * (i + 1))
+            ts = (
+                end_time
+                if i == len(multipliers) - 1
+                else start_time + timedelta(seconds=sec_per * (i + 1))
+            )
             try:
                 cur.execute(
                     "INSERT INTO multipliers (multiplier, session_id, timestamp) VALUES (?, ?, ?)",

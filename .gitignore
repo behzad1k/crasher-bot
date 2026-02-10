@@ -8,6 +8,5 @@ dist/
 .eggs/
 *.db
 *.log
-bot_config.json
 .venv/
 venv/
