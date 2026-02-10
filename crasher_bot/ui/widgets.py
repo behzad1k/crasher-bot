@@ -64,22 +64,46 @@ class MultiplierCanvas(tk.Canvas):
 
             self._rounded_rect(x, y, x + iw, y + ih, fill="#000")
             self.create_text(
-                x + iw / 2, y + ih / 2,
+                x + iw / 2,
+                y + ih / 2,
                 text=f"{m:.2f}x",
                 fill=color,
                 font=("Segoe UI", 10, "bold"),
             )
 
         # Update scrollregion to fit all rows
-        total_rows = (len(self.multipliers) + self.ITEMS_PER_ROW - 1) // self.ITEMS_PER_ROW
+        total_rows = (
+            len(self.multipliers) + self.ITEMS_PER_ROW - 1
+        ) // self.ITEMS_PER_ROW
         total_height = pad * 2 + total_rows * (ih + gap)
         self.configure(scrollregion=(0, 0, w, total_height))
 
     def _rounded_rect(self, x1, y1, x2, y2, r=5, **kw):
         pts = [
-            x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r,
-            x2, y2 - r, x2, y2, x2 - r, y2, x1 + r, y2,
-            x1, y2, x1, y2 - r, x1, y1 + r, x1, y1,
+            x1 + r,
+            y1,
+            x2 - r,
+            y1,
+            x2,
+            y1,
+            x2,
+            y1 + r,
+            x2,
+            y2 - r,
+            x2,
+            y2,
+            x2 - r,
+            y2,
+            x1 + r,
+            y2,
+            x1,
+            y2,
+            x1,
+            y2 - r,
+            x1,
+            y1 + r,
+            x1,
+            y1,
         ]
         return self.create_polygon(pts, smooth=True, **kw)
 
@@ -108,9 +132,16 @@ class StrategyCard(ttk.Frame):
         # Header
         hdr = ttk.Frame(self, style="Card.TFrame")
         hdr.pack(fill=tk.X, padx=10, pady=5)
-        ttk.Label(hdr, text=data.get("name", "Strategy"), font=("Segoe UI", 11, "bold"), style="Heading.TLabel").pack(side=tk.LEFT)
+        ttk.Label(
+            hdr,
+            text=data.get("name", "Strategy"),
+            font=("Segoe UI", 11, "bold"),
+            style="Heading.TLabel",
+        ).pack(side=tk.LEFT)
         if on_delete:
-            ttk.Button(hdr, text="Delete", command=on_delete, style="Danger.TButton", width=10).pack(side=tk.RIGHT)
+            ttk.Button(
+                hdr, text="Delete", command=on_delete, style="Danger.TButton", width=10
+            ).pack(side=tk.RIGHT)
 
         content = ttk.Frame(self, style="Card.TFrame")
         content.pack(fill=tk.X, padx=10, pady=5)
@@ -124,7 +155,9 @@ class StrategyCard(ttk.Frame):
         for key, label, _ in self.FIELDS_RIGHT:
             self._add_entry(right, key, label, data)
 
-        ttk.Checkbutton(self, text="Enabled", variable=self.enabled_var, style="Switch.TCheckbutton").pack(anchor=tk.W, padx=10, pady=2)
+        ttk.Checkbutton(
+            self, text="Enabled", variable=self.enabled_var, style="Switch.TCheckbutton"
+        ).pack(anchor=tk.W, padx=10, pady=2)
 
     def _add_entry(self, parent, key, label, data):
         f = ttk.Frame(parent, style="Card.TFrame")
@@ -156,8 +189,12 @@ class SimpleConfigCard(ttk.Frame):
         self.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         self._entries: Dict[str, ttk.Entry] = {}
 
-        ttk.Label(self, text=title, font=("Segoe UI", 12, "bold"), style="Heading.TLabel").pack(pady=(0, 10))
-        ttk.Label(self, text=description, wraplength=500, style="TLabel").pack(pady=(0, 15))
+        ttk.Label(
+            self, text=title, font=("Segoe UI", 12, "bold"), style="Heading.TLabel"
+        ).pack(pady=(0, 10))
+        ttk.Label(self, text=description, wraplength=500, style="TLabel").pack(
+            pady=(0, 15)
+        )
 
         for key, label, typ in fields:
             f = ttk.Frame(self, style="Card.TFrame")
@@ -169,7 +206,9 @@ class SimpleConfigCard(ttk.Frame):
             self._entries[key] = (e, typ)
 
         self.enabled_var = tk.BooleanVar(value=data.get("enabled", True))
-        ttk.Checkbutton(self, text="Enabled", variable=self.enabled_var, style="Switch.TCheckbutton").pack(pady=10)
+        ttk.Checkbutton(
+            self, text="Enabled", variable=self.enabled_var, style="Switch.TCheckbutton"
+        ).pack(pady=10)
 
     def get_data(self) -> dict:
         out = {}

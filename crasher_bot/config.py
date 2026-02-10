@@ -24,16 +24,7 @@ class PrimaryStrategyConfig:
 
 
 @dataclass
-class SecondaryStrategyConfig:
-    base_bet: float = 1000
-    auto_cashout: float = 2.0
-    max_consecutive_losses: int = 20
-    bet_multiplier: float = 2.0
-    enabled: bool = False
-
-
-@dataclass
-class TertiaryStrategyConfig:
+class CustomStrategyConfig:
     base_bet: float = 1000
     auto_cashout: float = 2.0
     max_consecutive_losses: int = 10
@@ -42,6 +33,18 @@ class TertiaryStrategyConfig:
     bet_multiplier: float = 2.0
     stop_profit_count: int = 0
     enabled: bool = False
+    # Activation triggers
+    activate_on_strong_hotstreak: bool = True
+    activate_on_weak_hotstreak: bool = False
+    activate_on_rule_of_17: bool = True
+    activate_on_pre_streak_pattern: bool = True
+    activate_on_high_deviation_10: bool = False
+    activate_on_high_deviation_15: bool = False
+    # Signal confirmation
+    signal_confirm_threshold: float = 2.0
+    signal_confirm_count: int = 3
+    signal_confirm_window: int = 5
+    signal_monitor_rounds: int = 20
 
 
 @dataclass
@@ -52,8 +55,7 @@ class BotConfig:
     max_loss: float = 100_000_000
     import_recent_on_new_session: bool = True
     strategies: List[PrimaryStrategyConfig] = field(default_factory=list)
-    secondary_strategy: Optional[SecondaryStrategyConfig] = None
-    tertiary_strategy: Optional[TertiaryStrategyConfig] = None
+    custom_strategy: Optional[CustomStrategyConfig] = None
 
     @classmethod
     def from_file(cls, path: str = DEFAULT_CONFIG_PATH) -> "BotConfig":
@@ -65,17 +67,11 @@ class BotConfig:
     def from_dict(cls, raw: Dict[str, Any]) -> "BotConfig":
         strategies = [PrimaryStrategyConfig(**s) for s in raw.get("strategies", [])]
 
-        secondary = None
-        if "secondary_strategy" in raw and raw["secondary_strategy"].get("enabled"):
-            sec = raw["secondary_strategy"].copy()
-            sec.pop("enabled", None)
-            secondary = SecondaryStrategyConfig(**sec, enabled=True)
-
-        tertiary = None
-        if "tertiary_strategy" in raw and raw["tertiary_strategy"].get("enabled"):
-            ter = raw["tertiary_strategy"].copy()
-            ter.pop("enabled", None)
-            tertiary = TertiaryStrategyConfig(**ter, enabled=True)
+        custom = None
+        if "custom_strategy" in raw and raw["custom_strategy"].get("enabled"):
+            cst = raw["custom_strategy"].copy()
+            cst.pop("enabled", None)
+            custom = CustomStrategyConfig(**cst, enabled=True)
 
         return cls(
             username=raw.get("username", ""),
@@ -84,8 +80,7 @@ class BotConfig:
             max_loss=float(raw.get("max_loss", 100_000_000)),
             import_recent_on_new_session=raw.get("import_recent_on_new_session", True),
             strategies=strategies,
-            secondary_strategy=secondary,
-            tertiary_strategy=tertiary,
+            custom_strategy=custom,
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -110,24 +105,27 @@ class BotConfig:
                     "enabled": s.enabled,
                 }
             )
-        if self.secondary_strategy:
-            result["secondary_strategy"] = {
-                "base_bet": self.secondary_strategy.base_bet,
-                "auto_cashout": self.secondary_strategy.auto_cashout,
-                "max_consecutive_losses": self.secondary_strategy.max_consecutive_losses,
-                "bet_multiplier": self.secondary_strategy.bet_multiplier,
-                "enabled": self.secondary_strategy.enabled,
-            }
-        if self.tertiary_strategy:
-            result["tertiary_strategy"] = {
-                "base_bet": self.tertiary_strategy.base_bet,
-                "auto_cashout": self.tertiary_strategy.auto_cashout,
-                "max_consecutive_losses": self.tertiary_strategy.max_consecutive_losses,
-                "max_losses_in_window": self.tertiary_strategy.max_losses_in_window,
-                "loss_check_window": self.tertiary_strategy.loss_check_window,
-                "bet_multiplier": self.tertiary_strategy.bet_multiplier,
-                "stop_profit_count": self.tertiary_strategy.stop_profit_count,
-                "enabled": self.tertiary_strategy.enabled,
+        if self.custom_strategy:
+            cs = self.custom_strategy
+            result["custom_strategy"] = {
+                "base_bet": cs.base_bet,
+                "auto_cashout": cs.auto_cashout,
+                "max_consecutive_losses": cs.max_consecutive_losses,
+                "max_losses_in_window": cs.max_losses_in_window,
+                "loss_check_window": cs.loss_check_window,
+                "bet_multiplier": cs.bet_multiplier,
+                "stop_profit_count": cs.stop_profit_count,
+                "enabled": cs.enabled,
+                "activate_on_strong_hotstreak": cs.activate_on_strong_hotstreak,
+                "activate_on_weak_hotstreak": cs.activate_on_weak_hotstreak,
+                "activate_on_rule_of_17": cs.activate_on_rule_of_17,
+                "activate_on_pre_streak_pattern": cs.activate_on_pre_streak_pattern,
+                "activate_on_high_deviation_10": cs.activate_on_high_deviation_10,
+                "activate_on_high_deviation_15": cs.activate_on_high_deviation_15,
+                "signal_confirm_threshold": cs.signal_confirm_threshold,
+                "signal_confirm_count": cs.signal_confirm_count,
+                "signal_confirm_window": cs.signal_confirm_window,
+                "signal_monitor_rounds": cs.signal_monitor_rounds,
             }
         return result
 

@@ -1,7 +1,7 @@
 """Strategy state objects for runtime tracking."""
 
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Optional
 
 
 @dataclass
@@ -39,53 +39,8 @@ class StrategyState:
 
 
 @dataclass
-class SecondaryState:
-    """Runtime state for the secondary (signal-monitoring) strategy."""
-
-    base_bet: float
-    auto_cashout: float
-    max_consecutive_losses: int
-    bet_multiplier: float
-    name: str = "Secondary"
-
-    current_bet: float = 0.0
-    consecutive_losses: int = 0
-    total_profit: float = 0.0
-    waiting_for_result: bool = False
-    is_active: bool = False
-    monitoring: bool = False
-    rounds_monitored: int = 0
-    monitoring_history: List[float] = field(default_factory=list)
-
-    def __post_init__(self):
-        if self.current_bet == 0.0:
-            self.current_bet = self.base_bet
-
-    def reset(self):
-        self.current_bet = self.base_bet
-        self.consecutive_losses = 0
-        self.waiting_for_result = False
-        self.is_active = False
-
-    def stop_monitoring(self):
-        self.monitoring = False
-        self.rounds_monitored = 0
-        self.monitoring_history = []
-
-    def start_monitoring(self, initial: List[float] | None = None):
-        self.monitoring = True
-        self.rounds_monitored = 0
-        self.monitoring_history = list(initial) if initial else []
-
-    def next_bet(self) -> float:
-        if self.consecutive_losses == 0:
-            return self.base_bet
-        return self.base_bet * (self.bet_multiplier**self.consecutive_losses)
-
-
-@dataclass
-class TertiaryState:
-    """Runtime state for the tertiary strategy."""
+class CustomState:
+    """Runtime state for the custom strategy."""
 
     base_bet: float
     auto_cashout: float
@@ -94,8 +49,23 @@ class TertiaryState:
     loss_check_window: int
     bet_multiplier: float
     stop_profit_count: int = 0
-    name: str = "Tertiary"
+    name: str = "Custom"
 
+    # Activation triggers
+    activate_on_strong_hotstreak: bool = True
+    activate_on_weak_hotstreak: bool = False
+    activate_on_rule_of_17: bool = True
+    activate_on_pre_streak_pattern: bool = True
+    activate_on_high_deviation_10: bool = False
+    activate_on_high_deviation_15: bool = False
+
+    # Signal confirmation
+    signal_confirm_threshold: float = 2.0
+    signal_confirm_count: int = 3
+    signal_confirm_window: int = 5
+    signal_monitor_rounds: int = 20
+
+    # Betting state
     current_bet: float = 0.0
     consecutive_losses: int = 0
     total_profit: float = 0.0
@@ -104,9 +74,71 @@ class TertiaryState:
     is_active: bool = False
     recent_outcomes: List[str] = field(default_factory=list)
 
+    # Signal monitoring state
+    monitoring: bool = False
+    rounds_monitored: int = 0
+    monitoring_history: List[float] = field(default_factory=list)
+    pending_signal_reason: Optional[str] = None
+
     def __post_init__(self):
         if self.current_bet == 0.0:
             self.current_bet = self.base_bet
+
+    # ── Signal activation checks ───────────────────────────────────
+
+    def should_activate_on_signal(self, signal_name: str) -> bool:
+        """Check if a given signal name should trigger activation."""
+        mapping = {
+            "pre_streak": self.activate_on_pre_streak_pattern,
+            "rule_of_17": self.activate_on_rule_of_17,
+            "possible_chain": False,
+            "dead_ass_chain": False,
+        }
+        if signal_name in mapping:
+            return bool(mapping[signal_name])
+        return False
+
+    def should_activate_on_high_stddev(self, window_size: int) -> bool:
+        """Check if high_stddev signal should trigger for a given window size."""
+        if window_size == 10:
+            return self.activate_on_high_deviation_10
+        elif window_size == 15:
+            return self.activate_on_high_deviation_15
+        return False
+
+    def should_activate_on_hotstreak(self, hotstreak_type: str) -> bool:
+        """Check if a hotstreak type should trigger activation."""
+        if hotstreak_type == "strong":
+            return self.activate_on_strong_hotstreak
+        elif hotstreak_type == "weak":
+            return self.activate_on_weak_hotstreak
+        return False
+
+    # ── Signal confirmation ────────────────────────────────────────
+
+    def check_confirmation(self, recent_mults: List[float]) -> bool:
+        """Check if recent multipliers meet the signal confirmation criteria."""
+        if len(recent_mults) < self.signal_confirm_window:
+            return False
+        window = recent_mults[-self.signal_confirm_window :]
+        above = sum(1 for m in window if m >= self.signal_confirm_threshold)
+        return above >= self.signal_confirm_count
+
+    def start_monitoring(self, reason: str, initial: Optional[List[float]] = None):
+        """Start monitoring rounds after a signal to wait for confirmation."""
+        self.monitoring = True
+        self.rounds_monitored = 0
+        self.monitoring_history = list(initial) if initial else []
+        self.pending_signal_reason = reason
+
+    def stop_monitoring(self):
+        """Stop signal monitoring."""
+        self.monitoring = False
+        self.rounds_monitored = 0
+        self.monitoring_history = []
+        self.pending_signal_reason = None
+
+    # ── Betting state ──────────────────────────────────────────────
 
     def reset(self):
         self.current_bet = self.base_bet
@@ -115,10 +147,11 @@ class TertiaryState:
         self.is_active = False
 
     def full_reset(self):
-        """Reset everything including win counter and outcomes."""
+        """Reset everything including win counter, outcomes, and monitoring."""
         self.reset()
         self.total_wins = 0
         self.recent_outcomes = []
+        self.stop_monitoring()
 
     def record_outcome(self, outcome: str):
         self.recent_outcomes.append(outcome)

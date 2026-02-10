@@ -6,7 +6,7 @@ import threading
 import tkinter as tk
 from datetime import datetime
 from tkinter import messagebox, scrolledtext, ttk
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from crasher_bot.config import BotConfig
 from crasher_bot.core import Database
@@ -116,6 +116,12 @@ class Application:
             foreground=Theme.FG_PRIMARY,
             font=("Segoe UI", 11, "bold"),
         )
+        s.configure(
+            "Desc.TLabel",
+            background=Theme.BG_LIGHT,
+            foreground=Theme.FG_SECONDARY,
+            font=("Segoe UI", 9),
+        )
         s.configure("TButton", borderwidth=0, focuscolor="none", font=("Segoe UI", 10))
         s.map("TButton", background=[("active", Theme.BG_HOVER)])
         s.configure("Success.TButton", background=Theme.ACCENT_SUCCESS)
@@ -166,8 +172,46 @@ class Application:
         tab = ttk.Frame(nb)
         nb.add(tab, text="Control")
 
+        # ── Credentials card ───────────────────────────────────────
+        cred_card = ttk.Frame(tab, style="Card.TFrame")
+        cred_card.pack(fill=tk.X, padx=20, pady=(20, 10))
+        ttk.Label(
+            cred_card,
+            text="Credentials",
+            font=("Segoe UI", 14, "bold"),
+            style="Heading.TLabel",
+        ).pack(pady=(10, 5))
+
+        uf = ttk.Frame(cred_card, style="Card.TFrame")
+        uf.pack(fill=tk.X, padx=20, pady=3)
+        ttk.Label(uf, text="Username:", width=12, style="Heading.TLabel").pack(
+            side=tk.LEFT
+        )
+        self._username_entry = ttk.Entry(uf, style="TEntry", width=35)
+        self._username_entry.insert(0, self.config.get("username", ""))
+        self._username_entry.pack(side=tk.LEFT, padx=5)
+
+        pf = ttk.Frame(cred_card, style="Card.TFrame")
+        pf.pack(fill=tk.X, padx=20, pady=(3, 10))
+        ttk.Label(pf, text="Password:", width=12, style="Heading.TLabel").pack(
+            side=tk.LEFT
+        )
+        self._password_entry = ttk.Entry(pf, style="TEntry", width=35, show="•")
+        self._password_entry.insert(0, self.config.get("password", ""))
+        self._password_entry.pack(side=tk.LEFT, padx=5)
+
+        self._show_pw_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            pf,
+            text="Show",
+            variable=self._show_pw_var,
+            command=self._toggle_password_visibility,
+            style="Switch.TCheckbutton",
+        ).pack(side=tk.LEFT, padx=5)
+
+        # ── Bot control card ──────────────────────────────────────
         card = ttk.Frame(tab, style="Card.TFrame")
-        card.pack(fill=tk.X, padx=20, pady=20)
+        card.pack(fill=tk.X, padx=20, pady=(0, 10))
         ttk.Label(
             card,
             text="Bot Control",
@@ -226,7 +270,7 @@ class Application:
         tab = ttk.Frame(nb)
         nb.add(tab, text="Strategies")
 
-        # Apply button pinned at the bottom, always visible
+        # Apply button pinned at the bottom
         bottom = ttk.Frame(tab)
         bottom.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
         ttk.Button(
@@ -255,7 +299,6 @@ class Application:
             hdr, text="Add Strategy", command=self._add_primary, style="Success.TButton"
         ).pack(side=tk.RIGHT)
 
-        # Scrollable container for primary strategy cards
         primary_canvas = tk.Canvas(pt, bg=Theme.BG_DARK, highlightthickness=0)
         primary_scrollbar = ttk.Scrollbar(
             pt, orient=tk.VERTICAL, command=primary_canvas.yview
@@ -278,7 +321,6 @@ class Application:
         primary_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         primary_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20, pady=10)
 
-        # Enable mousewheel scrolling on the primary canvas
         def _on_primary_mousewheel(event):
             primary_canvas.yview_scroll(-1 * (event.delta // 120), "units")
 
@@ -293,37 +335,11 @@ class Application:
         self._primary_canvas = primary_canvas
         self._refresh_primary_cards()
 
-        # Secondary
-        st = ttk.Frame(inner)
-        inner.add(st, text="Secondary")
-        sec_data = self.config.get(
-            "secondary_strategy",
-            {
-                "enabled": False,
-                "base_bet": 1000,
-                "auto_cashout": 2.0,
-                "max_consecutive_losses": 10,
-                "bet_multiplier": 2.0,
-            },
-        )
-        self._secondary_card = SimpleConfigCard(
-            st,
-            "Secondary Strategy",
-            "Signal-based with 21-round monitoring. Activates when 3+ of last 5 rounds are above 2x.",
-            [
-                ("base_bet", "Base Bet:", float),
-                ("auto_cashout", "Auto Cashout:", float),
-                ("max_consecutive_losses", "Max Losses:", int),
-                ("bet_multiplier", "Bet Multiplier:", float),
-            ],
-            sec_data,
-        )
-
-        # Tertiary
-        tt = ttk.Frame(inner)
-        inner.add(tt, text="Tertiary")
-        ter_data = self.config.get(
-            "tertiary_strategy",
+        # Custom
+        ct = ttk.Frame(inner)
+        inner.add(ct, text="Custom")
+        cst_data = self.config.get(
+            "custom_strategy",
             {
                 "enabled": False,
                 "base_bet": 1000,
@@ -333,23 +349,19 @@ class Application:
                 "loss_check_window": 10,
                 "bet_multiplier": 2.0,
                 "stop_profit_count": 0,
+                "activate_on_strong_hotstreak": True,
+                "activate_on_weak_hotstreak": False,
+                "activate_on_rule_of_17": True,
+                "activate_on_pre_streak_pattern": True,
+                "activate_on_high_deviation_10": False,
+                "activate_on_high_deviation_15": False,
+                "signal_confirm_threshold": 2.0,
+                "signal_confirm_count": 3,
+                "signal_confirm_window": 5,
+                "signal_monitor_rounds": 20,
             },
         )
-        self._tertiary_card = SimpleConfigCard(
-            tt,
-            "Tertiary Strategy",
-            "Signal-based instant betting. Starts immediately if in hotstreak.",
-            [
-                ("base_bet", "Base Bet:", float),
-                ("auto_cashout", "Auto Cashout:", float),
-                ("max_consecutive_losses", "Max Losses:", int),
-                ("max_losses_in_window", "Max Losses in Window:", int),
-                ("loss_check_window", "Window Size:", int),
-                ("bet_multiplier", "Bet Multiplier:", float),
-                ("stop_profit_count", "Stop After Wins (0=off):", int),
-            ],
-            ter_data,
-        )
+        self._custom_card = CustomConfigCard(ct, cst_data)
 
     def _build_logs_tab(self, nb: ttk.Notebook):
         tab = ttk.Frame(nb)
@@ -377,7 +389,6 @@ class Application:
         tab = ttk.Frame(nb)
         nb.add(tab, text="History")
 
-        # ── Header bar with session selector ───────────────────────
         header = ttk.Frame(tab, style="Card.TFrame")
         header.pack(fill=tk.X, padx=20, pady=(10, 0))
 
@@ -405,7 +416,6 @@ class Application:
             header, text="Clear View", command=self._clear_history_view, width=10
         ).pack(side=tk.RIGHT, padx=10, pady=8)
 
-        # ── Stats bar ──────────────────────────────────────────────
         stats = ttk.Frame(tab, style="Card.TFrame")
         stats.pack(fill=tk.X, padx=20, pady=(5, 0))
 
@@ -414,7 +424,6 @@ class Application:
         )
         self._history_stats.pack(side=tk.LEFT, padx=10, pady=5)
 
-        # ── Multiplier display with scrollbar ──────────────────────
         display_frame = ttk.Frame(tab)
         display_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
 
@@ -422,20 +431,16 @@ class Application:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         self._mult_display = MultiplierCanvas(display_frame, height=500, max_display=0)
-        self._mult_display.MAX_DISPLAY = 0  # 0 = unlimited for history
+        self._mult_display.MAX_DISPLAY = 0
         self._mult_display.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self._mult_display.configure(yscrollcommand=scrollbar.set)
         scrollbar.configure(command=self._mult_display.yview)
 
-        # Session ID→int mapping (populated by _refresh_session_list)
         self._session_map: dict[str, int] = {}
-
-        # Load sessions on startup
         self.root.after(200, self._refresh_session_list)
 
     def _refresh_session_list(self):
-        """Reload the session dropdown from the database."""
         try:
             db = self._get_history_db()
             sessions = db.list_sessions()
@@ -457,7 +462,6 @@ class Application:
         self._session_combo["values"] = labels
 
         if labels:
-            # Default to latest session (first in list, since ORDER BY DESC)
             self._session_combo.current(0)
             self._on_session_selected()
         else:
@@ -466,7 +470,6 @@ class Application:
             self._history_stats.configure(text="No sessions found")
 
     def _on_session_selected(self):
-        """Load multipliers for the selected session."""
         label = self._session_var.get()
         sid = self._session_map.get(label)
         if sid is None:
@@ -485,7 +488,6 @@ class Application:
             self._mult_display.multipliers.append(m)
         self._mult_display.draw()
 
-        # Stats
         if mults:
             avg = sum(mults) / len(mults)
             above_2x = sum(1 for m in mults if m >= 2.0)
@@ -502,12 +504,10 @@ class Application:
         self._history_stats.configure(text="")
 
     def _get_history_db(self) -> Database:
-        """Open a read-only DB connection for the history tab."""
         return Database()
 
     @staticmethod
     def _format_ts(ts_str: str) -> str:
-        """Format a timestamp string for display."""
         if not ts_str:
             return "?"
         try:
@@ -527,6 +527,9 @@ class Application:
     def _start_bot(self):
         if self.bot_running:
             return
+        # Sync credentials from UI
+        self.config["username"] = self._username_entry.get().strip()
+        self.config["password"] = self._password_entry.get().strip()
         cfg = BotConfig.from_dict(self.config)
         errors = cfg.validate()
         if errors:
@@ -552,7 +555,6 @@ class Application:
 
             def _on_mult(m):
                 self._mult_display.add(m)
-                # Auto-refresh session list once (so the new/continued session appears)
                 if not hasattr(self, "_session_refreshed_for_run"):
                     self._session_refreshed_for_run = True
                     self._refresh_session_list()
@@ -586,6 +588,12 @@ class Application:
             self.bot.command_queue.put({"action": "force_stop"})
             logger.info("Force-stop sent")
 
+    def _toggle_password_visibility(self):
+        if self._show_pw_var.get():
+            self._password_entry.configure(show="")
+        else:
+            self._password_entry.configure(show="•")
+
     def _refresh_manual_buttons(self):
         for w in self._manual_frame.winfo_children():
             w.destroy()
@@ -597,11 +605,11 @@ class Application:
                     command=lambda idx=i: self._activate_primary(idx),
                     width=40,
                 ).pack(pady=3, anchor=tk.W)
-        if self.config.get("secondary_strategy", {}).get("enabled"):
+        if self.config.get("custom_strategy", {}).get("enabled"):
             ttk.Button(
                 self._manual_frame,
-                text="Activate: Secondary",
-                command=self._activate_secondary,
+                text="Activate: Custom",
+                command=self._activate_custom,
                 width=40,
             ).pack(pady=3, anchor=tk.W)
 
@@ -613,13 +621,13 @@ class Application:
         self.bot.command_queue.put({"action": "set_autopilot", "value": False})
         self.bot.command_queue.put({"action": "activate_primary", "index": idx})
 
-    def _activate_secondary(self):
+    def _activate_custom(self):
         if not self.bot:
             messagebox.showwarning("Warning", "Bot not running")
             return
         self._autopilot_var.set(False)
         self.bot.command_queue.put({"action": "set_autopilot", "value": False})
-        self.bot.command_queue.put({"action": "activate_secondary"})
+        self.bot.command_queue.put({"action": "activate_custom"})
 
     # ── Strategy editing ────────────────────────────────────────────
 
@@ -657,9 +665,10 @@ class Application:
             self._refresh_primary_cards()
 
     def _apply_changes(self):
+        self.config["username"] = self._username_entry.get().strip()
+        self.config["password"] = self._password_entry.get().strip()
         self.config["strategies"] = [c.get_data() for c in self._primary_cards]
-        self.config["secondary_strategy"] = self._secondary_card.get_data()
-        self.config["tertiary_strategy"] = self._tertiary_card.get_data()
+        self.config["custom_strategy"] = self._custom_card.get_data()
         if self._save_config():
             self._refresh_manual_buttons()
             if self.bot and self.bot_running:
@@ -680,3 +689,253 @@ class Application:
 
     def run(self):
         self.root.mainloop()
+
+
+# ── Custom Strategy Config Card ─────────────────────────────────────
+
+
+class CustomConfigCard(ttk.Frame):
+    """Config card for the custom strategy with descriptions, activation triggers, and signal confirmation."""
+
+    FIELDS = [
+        (
+            "base_bet",
+            "Base Bet:",
+            float,
+            "Starting bet amount for each betting sequence.",
+        ),
+        (
+            "auto_cashout",
+            "Auto Cashout:",
+            float,
+            "Multiplier at which to automatically cash out (e.g. 2.0 = double).",
+        ),
+        (
+            "max_consecutive_losses",
+            "Max Losses:",
+            int,
+            "Stop betting after this many consecutive losses.",
+        ),
+        (
+            "max_losses_in_window",
+            "Max Losses in Window:",
+            int,
+            "Stop if this many losses occur within the rolling window.",
+        ),
+        (
+            "loss_check_window",
+            "Window Size:",
+            int,
+            "Number of recent outcomes to track for the rolling loss check.",
+        ),
+        (
+            "bet_multiplier",
+            "Bet Multiplier:",
+            float,
+            "Multiply bet by this after each loss (martingale factor).",
+        ),
+        (
+            "stop_profit_count",
+            "Stop After Wins (0=off):",
+            int,
+            "Automatically stop after reaching this many wins. 0 to disable.",
+        ),
+    ]
+
+    CONFIRM_FIELDS = [
+        (
+            "signal_confirm_threshold",
+            "Confirm Threshold:",
+            float,
+            "Multiplier threshold for signal confirmation (e.g. 2.0).",
+        ),
+        (
+            "signal_confirm_count",
+            "Confirm Count:",
+            int,
+            "How many rounds must exceed the threshold to confirm a signal.",
+        ),
+        (
+            "signal_confirm_window",
+            "Confirm Window:",
+            int,
+            "Number of recent rounds to check for confirmation.",
+        ),
+        (
+            "signal_monitor_rounds",
+            "Monitor Rounds:",
+            int,
+            "Max rounds to watch for confirmation after a signal before giving up.",
+        ),
+    ]
+
+    TRIGGER_FLAGS = [
+        (
+            "activate_on_strong_hotstreak",
+            "Activate on Strong Hotstreak",
+            "Start betting immediately when 75%+ of recent rounds are above 2x.",
+        ),
+        (
+            "activate_on_weak_hotstreak",
+            "Activate on Weak Hotstreak",
+            "Start betting immediately when 65%+ of recent rounds are above 2x.",
+        ),
+        (
+            "activate_on_rule_of_17",
+            "Activate on Rule of 17",
+            "Trigger after a hotstreak if no cold streak occurs within 15 rounds.",
+        ),
+        (
+            "activate_on_pre_streak_pattern",
+            "Activate on Pre-Streak Pattern",
+            "Trigger when avg > 3.75x with high volatility in the last 10 rounds.",
+        ),
+        (
+            "activate_on_high_deviation_10",
+            "Activate on High Std Dev (10-round)",
+            "Trigger when standard deviation exceeds 25 in a 10-round window.",
+        ),
+        (
+            "activate_on_high_deviation_15",
+            "Activate on High Std Dev (15-round)",
+            "Trigger when standard deviation exceeds 25 in a 15-round window.",
+        ),
+    ]
+
+    def __init__(self, parent, data: dict):
+        super().__init__(parent, style="Card.TFrame")
+        self.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        self._entries: Dict[str, tuple] = {}
+        self._trigger_vars: Dict[str, tk.BooleanVar] = {}
+
+        # Scrollable content
+        canvas = tk.Canvas(self, bg=Theme.BG_LIGHT, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(self, orient=tk.VERTICAL, command=canvas.yview)
+        inner = ttk.Frame(canvas, style="Card.TFrame")
+
+        inner.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
+        )
+        canvas.create_window((0, 0), window=inner, anchor=tk.NW, tags="inner")
+        canvas.bind(
+            "<Configure>",
+            lambda e: canvas.itemconfigure("inner", width=e.width),
+        )
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        def _on_mousewheel(event):
+            canvas.yview_scroll(-1 * (event.delta // 120), "units")
+
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
+        canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"))
+
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # ── Title ──────────────────────────────────────────────────
+        ttk.Label(
+            inner,
+            text="Custom Strategy",
+            font=("Segoe UI", 12, "bold"),
+            style="Heading.TLabel",
+        ).pack(pady=(0, 5))
+        ttk.Label(
+            inner,
+            text=(
+                "Signal & hotstreak-based betting. Hotstreaks trigger instant betting. "
+                "Signals start a monitoring period to confirm a promising pattern before betting begins."
+            ),
+            wraplength=500,
+            style="Desc.TLabel",
+        ).pack(pady=(0, 15))
+
+        # ── Betting parameters ─────────────────────────────────────
+        self._section_label(inner, "Betting Parameters")
+        for key, label, typ, desc in self.FIELDS:
+            self._add_field(inner, key, label, typ, desc, data)
+
+        # ── Signal confirmation ────────────────────────────────────
+        self._section_label(inner, "Signal Confirmation")
+        ttk.Label(
+            inner,
+            text=(
+                "When a signal fires, check if the last N rounds already show a promising pattern. "
+                "If not, monitor upcoming rounds (up to the monitor limit) before committing."
+            ),
+            wraplength=500,
+            style="Desc.TLabel",
+        ).pack(anchor=tk.W, padx=10, pady=(0, 8))
+        for key, label, typ, desc in self.CONFIRM_FIELDS:
+            self._add_field(inner, key, label, typ, desc, data)
+
+        # ── Activation triggers ────────────────────────────────────
+        self._section_label(inner, "Activation Triggers")
+        ttk.Label(
+            inner,
+            text=(
+                "Hotstreak triggers bet immediately. Signal triggers go through confirmation first."
+            ),
+            wraplength=500,
+            style="Desc.TLabel",
+        ).pack(anchor=tk.W, padx=10, pady=(0, 8))
+        for key, label, desc in self.TRIGGER_FLAGS:
+            var = tk.BooleanVar(value=data.get(key, False))
+            cb = ttk.Checkbutton(
+                inner,
+                text=label,
+                variable=var,
+                style="Switch.TCheckbutton",
+            )
+            cb.pack(anchor=tk.W, padx=10, pady=1)
+            ttk.Label(
+                inner,
+                text=desc,
+                style="Desc.TLabel",
+                wraplength=480,
+            ).pack(anchor=tk.W, padx=30, pady=(0, 4))
+            self._trigger_vars[key] = var
+
+        # ── Enabled ────────────────────────────────────────────────
+        self.enabled_var = tk.BooleanVar(value=data.get("enabled", False))
+        ttk.Checkbutton(
+            inner,
+            text="Enabled",
+            variable=self.enabled_var,
+            style="Switch.TCheckbutton",
+        ).pack(pady=10)
+
+    def _section_label(self, parent, text: str):
+        f = ttk.Frame(parent, style="Card.TFrame")
+        f.pack(fill=tk.X, pady=(12, 4))
+        ttk.Label(
+            f,
+            text=text,
+            font=("Segoe UI", 11, "bold"),
+            style="Heading.TLabel",
+        ).pack(anchor=tk.W, padx=10)
+
+    def _add_field(
+        self, parent, key: str, label: str, typ: type, desc: str, data: dict
+    ):
+        f = ttk.Frame(parent, style="Card.TFrame")
+        f.pack(fill=tk.X, pady=2, padx=10)
+        ttk.Label(f, text=label, width=25, style="TLabel").pack(side=tk.LEFT)
+        e = ttk.Entry(f, style="TEntry", width=20)
+        e.insert(0, str(data.get(key, "")))
+        e.pack(side=tk.LEFT, padx=5)
+        ttk.Label(f, text=desc, style="Desc.TLabel").pack(side=tk.LEFT, padx=(5, 0))
+        self._entries[key] = (e, typ)
+
+    def get_data(self) -> dict:
+        out = {}
+        for key, (entry, typ) in self._entries.items():
+            try:
+                out[key] = typ(entry.get())
+            except (ValueError, TypeError):
+                out[key] = typ()
+        for key, var in self._trigger_vars.items():
+            out[key] = var.get()
+        out["enabled"] = self.enabled_var.get()
+        return out

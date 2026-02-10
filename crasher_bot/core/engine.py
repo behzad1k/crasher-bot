@@ -14,7 +14,7 @@ from crasher_bot.core.hotstreak import (
     check_chain_patterns,
 )
 from crasher_bot.core.session import recover_or_create
-from crasher_bot.strategies import SecondaryState, StrategyState
+from crasher_bot.strategies import CustomState, StrategyState
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class BotEngine:
 
         # Strategies
         self.primaries: Dict[str, StrategyState] = {}
-        self.secondary: Optional[SecondaryState] = None
+        self.custom: Optional[CustomState] = None
         self._load_strategies()
 
         # Runtime state
@@ -61,13 +61,26 @@ class BotEngine:
                 max_consecutive_losses=sc.max_consecutive_losses,
                 bet_multiplier=sc.bet_multiplier,
             )
-        sc2 = self.config.secondary_strategy
-        if sc2 and sc2.enabled:
-            self.secondary = SecondaryState(
-                base_bet=sc2.base_bet,
-                auto_cashout=sc2.auto_cashout,
-                max_consecutive_losses=sc2.max_consecutive_losses,
-                bet_multiplier=sc2.bet_multiplier,
+        cs = self.config.custom_strategy
+        if cs and cs.enabled:
+            self.custom = CustomState(
+                base_bet=cs.base_bet,
+                auto_cashout=cs.auto_cashout,
+                max_consecutive_losses=cs.max_consecutive_losses,
+                max_losses_in_window=cs.max_losses_in_window,
+                loss_check_window=cs.loss_check_window,
+                bet_multiplier=cs.bet_multiplier,
+                stop_profit_count=cs.stop_profit_count,
+                activate_on_strong_hotstreak=cs.activate_on_strong_hotstreak,
+                activate_on_weak_hotstreak=cs.activate_on_weak_hotstreak,
+                activate_on_rule_of_17=cs.activate_on_rule_of_17,
+                activate_on_pre_streak_pattern=cs.activate_on_pre_streak_pattern,
+                activate_on_high_deviation_10=cs.activate_on_high_deviation_10,
+                activate_on_high_deviation_15=cs.activate_on_high_deviation_15,
+                signal_confirm_threshold=cs.signal_confirm_threshold,
+                signal_confirm_count=cs.signal_confirm_count,
+                signal_confirm_window=cs.signal_confirm_window,
+                signal_monitor_rounds=cs.signal_monitor_rounds,
             )
 
     # ── Main loop ───────────────────────────────────────────────────
@@ -162,11 +175,19 @@ class BotEngine:
                 if self.on_multiplier:
                     self.on_multiplier(mult)
 
-                # Secondary strategy
-                if self.secondary:
-                    self._handle_secondary(mult)
+                # Custom strategy – handle active bets
+                if self.custom and self.custom.waiting_for_result:
+                    self._custom_result(mult)
 
-                # Hotstreak analysis (only when idle)
+                # Custom strategy – signal monitoring
+                if self.custom and self.custom.monitoring and not self.custom.is_active:
+                    self._custom_monitor_round(mult)
+
+                # Custom strategy – hotstreak activation
+                if self.custom:
+                    self._check_custom_hotstreak()
+
+                # Signal analysis (only when idle)
                 if not self.strategy_active and not active_name:
                     self._analyze_signals()
 
@@ -180,7 +201,7 @@ class BotEngine:
 
                 # Activate new primary (if idle)
                 if not active_name and not self.strategy_active and self.autopilot:
-                    if not self.secondary or not self.secondary.is_active:
+                    if not self.custom or not self.custom.is_active:
                         active_name = self._try_activate_primary()
 
                 time.sleep(0.1)
@@ -265,106 +286,217 @@ class BotEngine:
                 self.strategy_active = False
                 return None
 
-    # ── Secondary strategy ──────────────────────────────────────────
+    # ── Custom strategy ─────────────────────────────────────────────
 
-    def _handle_secondary(self, mult: float):
-        sec = self.secondary
-        if sec.waiting_for_result:
-            self._secondary_result(mult)
+    def _check_custom_hotstreak(self):
+        """Activate custom on hotstreak detection – bets instantly."""
+        cst = self.custom
+        if (
+            cst.is_active
+            or cst.waiting_for_result
+            or self.strategy_active
+            or not self.autopilot
+        ):
             return
 
-        if sec.monitoring and not sec.is_active:
-            sec.rounds_monitored += 1
-            sec.monitoring_history.append(mult)
-            logger.info("[Secondary] Monitor %d/21: %sx", sec.rounds_monitored, mult)
+        hs = self.tracker.current_hotstreak
+        if hs is None:
+            return
 
-            if len(sec.monitoring_history) >= 5:
-                last5 = sec.monitoring_history[-5:]
-                if all(m < 2.01 for m in last5):
-                    logger.info("[Secondary] Cold streak – dropping signal")
-                    sec.stop_monitoring()
+        hs_type = hs.get("type", "")
+        if cst.should_activate_on_hotstreak(hs_type):
+            logger.info(
+                "[Custom] %s hotstreak detected – betting instantly",
+                hs_type.capitalize(),
+            )
+            self._activate_custom_betting(reason=f"{hs_type}_hotstreak")
+
+    def _custom_signal_triggered(self, reason: str):
+        """Handle a signal trigger – check confirmation or start monitoring."""
+        cst = self.custom
+        if (
+            cst.is_active
+            or cst.waiting_for_result
+            or self.strategy_active
+            or not self.autopilot
+        ):
+            return
+
+        # Check if last N rounds already confirm the signal
+        recent = self.tracker.get_last_n(cst.signal_confirm_window)
+        if cst.check_confirmation(recent):
+            logger.info(
+                "[Custom] Signal '%s' confirmed immediately (%d+/%d above %sx) – betting",
+                reason,
+                cst.signal_confirm_count,
+                cst.signal_confirm_window,
+                cst.signal_confirm_threshold,
+            )
+            self._activate_custom_betting(reason=f"{reason} (confirmed)")
+        else:
+            # Start monitoring to wait for confirmation
+            if cst.monitoring:
+                logger.info("[Custom] New signal '%s' – restarting monitor", reason)
+            else:
+                logger.info(
+                    "[Custom] Signal '%s' – monitoring next %d rounds for %d+/%d above %sx",
+                    reason,
+                    cst.signal_monitor_rounds,
+                    cst.signal_confirm_count,
+                    cst.signal_confirm_window,
+                    cst.signal_confirm_threshold,
+                )
+            cst.start_monitoring(reason, initial=list(recent))
+
+    def _custom_monitor_round(self, mult: float):
+        """Process a round during signal monitoring."""
+        cst = self.custom
+        cst.rounds_monitored += 1
+        cst.monitoring_history.append(mult)
+        logger.info(
+            "[Custom] Monitor %d/%d: %sx (signal: %s)",
+            cst.rounds_monitored,
+            cst.signal_monitor_rounds,
+            mult,
+            cst.pending_signal_reason,
+        )
+
+        # Check confirmation on the monitoring window
+        if len(cst.monitoring_history) >= cst.signal_confirm_window:
+            last_n = cst.monitoring_history[-cst.signal_confirm_window :]
+            above = sum(1 for m in last_n if m >= cst.signal_confirm_threshold)
+            if above >= cst.signal_confirm_count:
+                if not self.strategy_active and self.autopilot:
+                    reason = cst.pending_signal_reason or "signal"
+                    logger.info(
+                        "[Custom] Signal confirmed during monitoring (%d/%d above %sx) – betting",
+                        above,
+                        cst.signal_confirm_window,
+                        cst.signal_confirm_threshold,
+                    )
+                    cst.stop_monitoring()
+                    self._activate_custom_betting(reason=f"{reason} (confirmed)")
                     return
-                above = sum(1 for m in last5 if m >= 2.0)
-                if (
-                    above >= 3
-                    and not sec.is_active
-                    and not self.strategy_active
-                    and self.autopilot
-                ):
-                    logger.info("[Secondary] Activating (3+/5 above 2x)")
-                    self._activate_secondary_betting()
 
-            if sec.rounds_monitored >= 21:
-                logger.info("[Secondary] 21 rounds – stopping monitor")
-                sec.stop_monitoring()
+        # Max monitoring rounds reached
+        if cst.rounds_monitored >= cst.signal_monitor_rounds:
+            logger.info(
+                "[Custom] Monitor expired after %d rounds – signal not confirmed",
+                cst.signal_monitor_rounds,
+            )
+            cst.stop_monitoring()
 
-    def _activate_secondary_betting(self):
-        """Activate the secondary strategy and place the first bet."""
-        sec = self.secondary
-        sec.is_active = True
+    def _activate_custom_betting(self, reason: str = "manual"):
+        """Activate the custom strategy and place the first bet."""
+        cst = self.custom
+        cst.stop_monitoring()
+        cst.is_active = True
         self.strategy_active = True
-        if not self.driver.setup_auto_cashout(sec.auto_cashout):
-            sec.reset()
-            sec.stop_monitoring()
+        if not self.driver.setup_auto_cashout(cst.auto_cashout):
+            cst.reset()
             self.strategy_active = False
             return
         time.sleep(2)
-        bet = sec.next_bet()
+        bet = cst.next_bet()
         if self.driver.place_bet(bet):
-            sec.current_bet = bet
-            sec.waiting_for_result = True
+            cst.current_bet = bet
+            cst.waiting_for_result = True
+            logger.info("[Custom] BET %d (reason: %s)", bet, reason)
         else:
-            sec.reset()
-            sec.stop_monitoring()
+            cst.reset()
             self.strategy_active = False
 
-    def _secondary_result(self, mult: float):
-        sec = self.secondary
-        if sec.monitoring:
-            sec.monitoring_history.append(mult)
-
-        if mult >= sec.auto_cashout:
-            profit = sec.current_bet * (sec.auto_cashout - 1)
-            sec.total_profit += profit
+    def _custom_result(self, mult: float):
+        cst = self.custom
+        if mult >= cst.auto_cashout:
+            profit = cst.current_bet * (cst.auto_cashout - 1)
+            cst.total_profit += profit
             self.total_profit += profit
-            self.db.add_bet(sec.name, sec.current_bet, "win", mult, profit)
-            logger.info("[Secondary] WIN +%.0f", profit)
-            sec.reset()
-            sec.stop_monitoring()
-            self.strategy_active = False
-        else:
-            loss = sec.current_bet
-            sec.total_profit -= loss
-            self.total_profit -= loss
-            self.db.add_bet(sec.name, sec.current_bet, "loss", mult, -loss)
-            sec.consecutive_losses += 1
-            sec.current_bet = sec.next_bet()
+            cst.total_wins += 1
+            cst.record_outcome("win")
+            self.db.add_bet(cst.name, cst.current_bet, "win", mult, profit)
             logger.info(
-                "[Secondary] LOSS -%.0f (streak: %d)", loss, sec.consecutive_losses
+                "[Custom] WIN +%.0f (wins: %d, total: %.0f)",
+                profit,
+                cst.total_wins,
+                cst.total_profit,
+            )
+            cst.consecutive_losses = 0
+            cst.current_bet = cst.base_bet
+            cst.waiting_for_result = False
+
+            # Check stop-profit condition
+            if cst.should_stop_for_profit():
+                logger.info(
+                    "[Custom] Stop-profit reached (%d wins) – stopping",
+                    cst.total_wins,
+                )
+                cst.full_reset()
+                self.strategy_active = False
+                return
+
+            # Continue betting if still in hotstreak or recently ended one
+            if self.autopilot and (
+                self.tracker.in_hotstreak() or self.tracker.just_ended_hotstreak()
+            ):
+                time.sleep(1)
+                bet = cst.next_bet()
+                if self.driver.place_bet(bet):
+                    cst.current_bet = bet
+                    cst.waiting_for_result = True
+                    logger.info("[Custom] Continue BET %d", bet)
+                else:
+                    cst.reset()
+                    self.strategy_active = False
+            else:
+                logger.info("[Custom] No active hotstreak/signal – pausing")
+                cst.reset()
+                self.strategy_active = False
+        else:
+            loss = cst.current_bet
+            cst.total_profit -= loss
+            self.total_profit -= loss
+            cst.consecutive_losses += 1
+            cst.record_outcome("loss")
+            self.db.add_bet(cst.name, cst.current_bet, "loss", mult, -loss)
+            logger.info(
+                "[Custom] LOSS -%.0f (streak: %d, window losses: %d/%d)",
+                loss,
+                cst.consecutive_losses,
+                cst.losses_in_window(),
+                cst.loss_check_window,
             )
 
-            # Cold streak while betting
-            if sec.monitoring and len(sec.monitoring_history) >= 5:
-                if all(m < 2.01 for m in sec.monitoring_history[-5:]):
-                    logger.info("[Secondary] Cold streak while betting – stopping")
-                    sec.reset()
-                    sec.stop_monitoring()
-                    self.strategy_active = False
-                    return
-
-            if sec.consecutive_losses >= sec.max_consecutive_losses:
-                logger.info("[Secondary] Max losses – stopping")
-                sec.reset()
-                sec.stop_monitoring()
+            # Check max consecutive losses
+            if cst.consecutive_losses >= cst.max_consecutive_losses:
+                logger.info("[Custom] Max consecutive losses – stopping")
+                cst.full_reset()
                 self.strategy_active = False
+                return
+
+            # Check window loss limit
+            if cst.should_stop_for_window_losses():
+                logger.info(
+                    "[Custom] Window loss limit (%d/%d in last %d) – stopping",
+                    cst.losses_in_window(),
+                    cst.max_losses_in_window,
+                    cst.loss_check_window,
+                )
+                cst.full_reset()
+                self.strategy_active = False
+                return
+
+            # Continue betting with martingale
+            cst.current_bet = cst.next_bet()
+            cst.waiting_for_result = False
+            time.sleep(1)
+            if self.driver.place_bet(cst.current_bet):
+                cst.waiting_for_result = True
+                logger.info("[Custom] Follow-up BET %d", cst.current_bet)
             else:
-                time.sleep(1)
-                if self.driver.place_bet(sec.current_bet):
-                    sec.waiting_for_result = True
-                else:
-                    sec.reset()
-                    sec.stop_monitoring()
-                    self.strategy_active = False
+                logger.error("[Custom] Failed to place follow-up bet")
+                cst.reset()
+                self.strategy_active = False
 
     # ── Signal analysis ─────────────────────────────────────────────
 
@@ -372,7 +504,8 @@ class BotEngine:
         if self.strategy_active or self.tracker.in_hotstreak():
             return
 
-        found = False
+        triggered_signals: List[str] = []
+
         for win_size, min_len in [(10, 10), (15, 15)]:
             window = self.tracker.get_last_n(win_size)
             if len(window) < min_len:
@@ -380,35 +513,33 @@ class BotEngine:
             signals = analyze_window(window, win_size)
             for sig in signals:
                 logger.info("SIGNAL: %s (window=%d)", sig, win_size)
-                found = True
+                if (
+                    self.custom
+                    and not self.custom.is_active
+                    and not self.strategy_active
+                ):
+                    if sig == "high_stddev":
+                        if self.custom.should_activate_on_high_stddev(win_size):
+                            triggered_signals.append(f"{sig}_w{win_size}")
+                    elif self.custom.should_activate_on_signal(sig):
+                        triggered_signals.append(sig)
 
         if self.tracker.just_ended_hotstreak():
             for sig in check_chain_patterns(self.tracker):
                 logger.info("SIGNAL: %s", sig)
-                found = True
+                if (
+                    self.custom
+                    and not self.custom.is_active
+                    and not self.strategy_active
+                ):
+                    if self.custom.should_activate_on_signal(sig):
+                        triggered_signals.append(sig)
 
-        if found and self.secondary:
-            last5 = self.tracker.get_last_n(5)
-            if self.secondary.monitoring:
-                logger.info("[Secondary] New signal – restarting monitor")
-            else:
-                logger.info("[Secondary] Signal – starting 21-round monitor")
-            self.secondary.start_monitoring(last5)
-            self.tracker.mark_signal()
-
-            # Immediately check if the last 5 rounds already qualify for activation
-            if (
-                not self.secondary.is_active
-                and not self.strategy_active
-                and self.autopilot
-                and len(last5) >= 5
-            ):
-                above = sum(1 for m in last5 if m >= 2.0)
-                if above >= 3:
-                    logger.info(
-                        "[Secondary] Instant activation (3+/5 above 2x from signal)"
-                    )
-                    self._activate_secondary_betting()
+        # Route signals through confirmation/monitoring
+        if triggered_signals and self.custom and self.autopilot:
+            if not self.custom.is_active and not self.strategy_active:
+                reason = ", ".join(triggered_signals)
+                self._custom_signal_triggered(reason)
 
     # ── Commands from GUI ───────────────────────────────────────────
 
@@ -424,8 +555,8 @@ class BotEngine:
                     self._force_stop_all()
                 elif action == "activate_primary":
                     self._manual_activate_primary(cmd["index"])
-                elif action == "activate_secondary":
-                    self._manual_activate_secondary()
+                elif action == "activate_custom":
+                    self._manual_activate_custom()
                 elif action == "reload_config":
                     self._hot_reload(cmd["config"])
             except queue.Empty:
@@ -434,9 +565,8 @@ class BotEngine:
     def _force_stop_all(self):
         for s in self.primaries.values():
             s.reset()
-        if self.secondary:
-            self.secondary.reset()
-            self.secondary.stop_monitoring()
+        if self.custom:
+            self.custom.full_reset()
         self.strategy_active = False
         logger.info("All strategies force-stopped")
 
@@ -455,11 +585,12 @@ class BotEngine:
                 s.waiting_for_result = True
                 logger.info("[%s] Manually activated", name)
 
-    def _manual_activate_secondary(self):
-        if self.secondary:
-            last5 = self.tracker.get_last_n(5)
-            self.secondary.start_monitoring(last5)
-            logger.info("[Secondary] Manually started monitoring")
+    def _manual_activate_custom(self):
+        if self.custom and not self.custom.is_active and not self.strategy_active:
+            logger.info("[Custom] Manually activated")
+            self._activate_custom_betting(reason="manual")
+        elif self.custom and self.strategy_active:
+            logger.warning("[Custom] Cannot activate – another strategy is active")
 
     def _hot_reload(self, raw_config: dict):
         new_cfg = BotConfig.from_dict(raw_config)
@@ -478,11 +609,10 @@ class BotEngine:
                 logger.warning("[%s] Max consecutive losses", s.name)
                 return False
         if (
-            self.secondary
-            and self.secondary.consecutive_losses
-            >= self.secondary.max_consecutive_losses
+            self.custom
+            and self.custom.consecutive_losses >= self.custom.max_consecutive_losses
         ):
-            logger.warning("[Secondary] Max consecutive losses")
+            logger.warning("[Custom] Max consecutive losses")
             return False
         return True
 
@@ -503,11 +633,12 @@ class BotEngine:
                 s.total_profit,
                 s.consecutive_losses,
             )
-        if self.secondary:
+        if self.custom:
             logger.info(
-                "  [Secondary] P/L: %.0f  Losses: %d",
-                self.secondary.total_profit,
-                self.secondary.consecutive_losses,
+                "  [Custom] P/L: %.0f  Wins: %d  Losses: %d",
+                self.custom.total_profit,
+                self.custom.total_wins,
+                self.custom.consecutive_losses,
             )
         bal = self.driver.get_balance()
         if bal is not None:
@@ -528,11 +659,30 @@ class BotEngine:
                 s.trigger_threshold,
                 s.auto_cashout,
             )
-        if self.secondary:
+        if self.custom:
+            triggers = []
+            if self.custom.activate_on_strong_hotstreak:
+                triggers.append("strong_hs")
+            if self.custom.activate_on_weak_hotstreak:
+                triggers.append("weak_hs")
+            if self.custom.activate_on_rule_of_17:
+                triggers.append("rule17")
+            if self.custom.activate_on_pre_streak_pattern:
+                triggers.append("pre_streak")
+            if self.custom.activate_on_high_deviation_10:
+                triggers.append("stddev10")
+            if self.custom.activate_on_high_deviation_15:
+                triggers.append("stddev15")
             logger.info(
-                "  [Secondary] signal-based, cashout=%sx", self.secondary.auto_cashout
+                "  [Custom] cashout=%sx, window=%d/%d, stop_profit=%d, confirm=%d+/%d>%sx, monitor=%d, triggers=[%s]",
+                self.custom.auto_cashout,
+                self.custom.max_losses_in_window,
+                self.custom.loss_check_window,
+                self.custom.stop_profit_count,
+                self.custom.signal_confirm_count,
+                self.custom.signal_confirm_window,
+                self.custom.signal_confirm_threshold,
+                self.custom.signal_monitor_rounds,
+                ", ".join(triggers) if triggers else "none",
             )
         logger.info("=" * 60)
-
-
-# 925,000

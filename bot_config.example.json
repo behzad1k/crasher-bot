@@ -16,19 +16,24 @@
       "bet_multiplier": 2.0
     }
   ],
-  "secondary_strategy": {
-    "enabled": false,
-    "base_bet": 1000,
-    "auto_cashout": 2.0,
-    "max_consecutive_losses": 10,
-    "bet_multiplier": 2.0
-  },
-  "tertiary_strategy": {
+  "custom_strategy": {
     "enabled": false,
     "base_bet": 1000,
     "auto_cashout": 2.0,
     "max_consecutive_losses": 10,
     "max_losses_in_window": 7,
-    "loss_check_window": 10
+    "loss_check_window": 10,
+    "bet_multiplier": 2.0,
+    "stop_profit_count": 0,
+    "activate_on_strong_hotstreak": true,
+    "activate_on_weak_hotstreak": false,
+    "activate_on_rule_of_17": true,
+    "activate_on_pre_streak_pattern": true,
+    "activate_on_high_deviation_10": false,
+    "activate_on_high_deviation_15": false,
+    "signal_confirm_threshold": 2.0,
+    "signal_confirm_count": 3,
+    "signal_confirm_window": 5,
+    "signal_monitor_rounds": 20
   }
 }
