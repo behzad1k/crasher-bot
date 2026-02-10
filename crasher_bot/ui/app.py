@@ -101,6 +101,13 @@ class Application:
 
     def _apply_theme(self):
         s = ttk.Style()
+
+        # Use 'clam' theme on Windows/Linux for full color control.
+        # The default 'vista'/'winnative' themes ignore most background settings,
+        # causing white inputs, tabs, and comboboxes.
+        if self.root.tk.call("tk", "windowingsystem") != "aqua":
+            s.theme_use("clam")
+
         self.root.configure(bg=Theme.BG_DARK)
         s.configure("TFrame", background=Theme.BG_DARK)
         s.configure("Card.TFrame", background=Theme.BG_LIGHT, relief=tk.RAISED)
@@ -122,41 +129,142 @@ class Application:
             foreground=Theme.FG_SECONDARY,
             font=("Segoe UI", 9),
         )
-        s.configure("TButton", borderwidth=0, focuscolor="none", font=("Segoe UI", 10))
-        s.map("TButton", background=[("active", Theme.BG_HOVER)])
-        s.configure("Success.TButton", background=Theme.ACCENT_SUCCESS)
-        s.configure("Danger.TButton", background=Theme.ACCENT_DANGER)
-        s.configure("Warning.TButton", background=Theme.ACCENT_WARNING)
+
+        # ── Buttons ────────────────────────────────────────────────
+        s.configure(
+            "TButton",
+            borderwidth=0,
+            focuscolor="none",
+            font=("Segoe UI", 10),
+            background=Theme.BG_MEDIUM,
+            foreground=Theme.FG_PRIMARY,
+        )
+        s.map(
+            "TButton",
+            background=[("active", Theme.BG_HOVER), ("pressed", Theme.BG_HOVER)],
+            foreground=[("active", Theme.FG_PRIMARY)],
+        )
+        s.configure(
+            "Success.TButton", background=Theme.ACCENT_SUCCESS, foreground="#000000"
+        )
+        s.map(
+            "Success.TButton",
+            background=[("active", "#00b85c")],
+            foreground=[("active", "#000000")],
+        )
+        s.configure(
+            "Danger.TButton", background=Theme.ACCENT_DANGER, foreground="#000000"
+        )
+        s.map(
+            "Danger.TButton",
+            background=[("active", "#e55a5a")],
+            foreground=[("active", "#000000")],
+        )
+        s.configure(
+            "Warning.TButton", background=Theme.ACCENT_WARNING, foreground="#000000"
+        )
+        s.map(
+            "Warning.TButton",
+            background=[("active", "#e69540")],
+            foreground=[("active", "#000000")],
+        )
+
+        # ── Entry ──────────────────────────────────────────────────
         s.configure(
             "TEntry",
             fieldbackground=Theme.BG_MEDIUM,
             foreground=Theme.FG_PRIMARY,
             insertcolor=Theme.FG_PRIMARY,
+            bordercolor=Theme.BORDER,
+            lightcolor=Theme.BORDER,
+            darkcolor=Theme.BORDER,
         )
-        s.configure("TNotebook", background=Theme.BG_DARK, borderwidth=0)
+
+        # ── Notebook / Tabs ────────────────────────────────────────
+        s.configure(
+            "TNotebook",
+            background=Theme.BG_DARK,
+            borderwidth=0,
+            tabmargins=[0, 0, 0, 0],
+        )
         s.configure(
             "TNotebook.Tab",
             background=Theme.BG_MEDIUM,
             foreground=Theme.FG_SECONDARY,
             padding=[20, 10],
             font=("Segoe UI", 10),
+            borderwidth=0,
         )
         s.map(
             "TNotebook.Tab",
             background=[("selected", Theme.BG_LIGHT)],
             foreground=[("selected", Theme.FG_PRIMARY)],
         )
+
+        # ── Checkbuttons ───────────────────────────────────────────
         s.configure(
             "TCheckbutton",
             background=Theme.BG_DARK,
             foreground=Theme.FG_PRIMARY,
             font=("Segoe UI", 10),
+            indicatorcolor=Theme.BG_MEDIUM,
+            indicatorbackground=Theme.BG_MEDIUM,
+        )
+        s.map(
+            "TCheckbutton",
+            indicatorcolor=[("selected", Theme.ACCENT_PRIMARY)],
+            background=[("active", Theme.BG_DARK)],
         )
         s.configure(
             "Switch.TCheckbutton",
             background=Theme.BG_LIGHT,
             foreground=Theme.FG_PRIMARY,
+            indicatorcolor=Theme.BG_MEDIUM,
+            indicatorbackground=Theme.BG_MEDIUM,
         )
+        s.map(
+            "Switch.TCheckbutton",
+            indicatorcolor=[("selected", Theme.ACCENT_PRIMARY)],
+            background=[("active", Theme.BG_LIGHT)],
+        )
+
+        # ── Combobox ───────────────────────────────────────────────
+        s.configure(
+            "TCombobox",
+            fieldbackground=Theme.BG_MEDIUM,
+            background=Theme.BG_MEDIUM,
+            foreground=Theme.FG_PRIMARY,
+            arrowcolor=Theme.FG_PRIMARY,
+            bordercolor=Theme.BORDER,
+            lightcolor=Theme.BORDER,
+            darkcolor=Theme.BORDER,
+            selectbackground=Theme.BG_MEDIUM,
+            selectforeground=Theme.FG_PRIMARY,
+        )
+        s.map(
+            "TCombobox",
+            fieldbackground=[("readonly", Theme.BG_MEDIUM)],
+            foreground=[("readonly", Theme.FG_PRIMARY)],
+            selectbackground=[("readonly", Theme.BG_MEDIUM)],
+            selectforeground=[("readonly", Theme.FG_PRIMARY)],
+        )
+        # Dark dropdown listbox for combobox
+        self.root.option_add("*TCombobox*Listbox.background", Theme.BG_MEDIUM)
+        self.root.option_add("*TCombobox*Listbox.foreground", Theme.FG_PRIMARY)
+        self.root.option_add(
+            "*TCombobox*Listbox.selectBackground", Theme.ACCENT_PRIMARY
+        )
+        self.root.option_add("*TCombobox*Listbox.selectForeground", Theme.FG_PRIMARY)
+
+        # ── Scrollbar ──────────────────────────────────────────────
+        s.configure(
+            "Vertical.TScrollbar",
+            background=Theme.BG_MEDIUM,
+            troughcolor=Theme.BG_DARK,
+            arrowcolor=Theme.FG_SECONDARY,
+            bordercolor=Theme.BG_DARK,
+        )
+        s.map("Vertical.TScrollbar", background=[("active", Theme.BG_HOVER)])
 
     # ── UI Build ────────────────────────────────────────────────────
 
@@ -373,6 +481,9 @@ class Application:
             font=("Consolas", 9),
             wrap=tk.WORD,
             state=tk.DISABLED,
+            insertbackground=Theme.FG_PRIMARY,
+            selectbackground=Theme.ACCENT_PRIMARY,
+            selectforeground=Theme.FG_PRIMARY,
         )
         self._log_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         ttk.Button(
