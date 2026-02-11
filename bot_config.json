@@ -148,23 +148,24 @@
     }
   ],
   "custom_strategy": {
-    "base_bet": 10000.0,
+    "base_bet": 1000.0,
     "auto_cashout": 2.0,
-    "max_consecutive_losses": 2,
+    "max_consecutive_losses": 3,
     "max_losses_in_window": 2,
     "loss_check_window": 5,
-    "bet_multiplier": 2.0,
-    "stop_profit_count": 3,
+    "bet_multiplier": 1.0,
+    "stop_profit_count": 5,
+    "cooldown_after_win": 0,
+    "signal_confirm_threshold": 2.0,
+    "signal_confirm_count": 3,
+    "signal_confirm_window": 5,
+    "signal_monitor_rounds": 20,
     "activate_on_strong_hotstreak": true,
-    "activate_on_weak_hotstreak": false,
+    "activate_on_weak_hotstreak": true,
     "activate_on_rule_of_17": true,
     "activate_on_pre_streak_pattern": true,
     "activate_on_high_deviation_10": true,
     "activate_on_high_deviation_15": true,
-    "signal_confirm_threshold": 2,
-    "signal_confirm_count": 3,
-    "signal_confirm_window": 5,
-    "signal_monitor_rounds": 20,
     "enabled": true
   }
 }

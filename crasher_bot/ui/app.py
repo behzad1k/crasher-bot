@@ -457,6 +457,7 @@ class Application:
                 "loss_check_window": 10,
                 "bet_multiplier": 2.0,
                 "stop_profit_count": 0,
+                "cooldown_after_win": 0,
                 "activate_on_strong_hotstreak": True,
                 "activate_on_weak_hotstreak": False,
                 "activate_on_rule_of_17": True,
@@ -850,6 +851,12 @@ class CustomConfigCard(ttk.Frame):
             "Stop After Wins (0=off):",
             int,
             "Automatically stop after reaching this many wins. 0 to disable.",
+        ),
+        (
+            "cooldown_after_win",
+            "Cooldown After Win (0=off):",
+            int,
+            "Number of rounds to skip betting after each win. 0 to disable.",
         ),
     ]
 

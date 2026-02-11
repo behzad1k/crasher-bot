@@ -14,6 +14,7 @@ from crasher_bot.core.hotstreak import (
     check_chain_patterns,
 )
 from crasher_bot.core.session import recover_or_create
+from crasher_bot.core.sound import play_bet_alert
 from crasher_bot.strategies import CustomState, StrategyState
 
 logger = logging.getLogger(__name__)
@@ -71,6 +72,7 @@ class BotEngine:
                 loss_check_window=cs.loss_check_window,
                 bet_multiplier=cs.bet_multiplier,
                 stop_profit_count=cs.stop_profit_count,
+                cooldown_after_win=cs.cooldown_after_win,
                 activate_on_strong_hotstreak=cs.activate_on_strong_hotstreak,
                 activate_on_weak_hotstreak=cs.activate_on_weak_hotstreak,
                 activate_on_rule_of_17=cs.activate_on_rule_of_17,
@@ -175,6 +177,17 @@ class BotEngine:
                 if self.on_multiplier:
                     self.on_multiplier(mult)
 
+                # Tick custom cooldown each round
+                if self.custom and self.custom.in_cooldown():
+                    self.custom.tick_cooldown()
+                    if self.custom.in_cooldown():
+                        logger.info(
+                            "[Custom] Cooldown: %d rounds remaining",
+                            self.custom.cooldown_remaining,
+                        )
+                    else:
+                        logger.info("[Custom] Cooldown finished – ready to bet again")
+
                 # Custom strategy – handle active bets
                 if self.custom and self.custom.waiting_for_result:
                     self._custom_result(mult)
@@ -241,6 +254,7 @@ class BotEngine:
                     s.current_bet = bet
                     s.waiting_for_result = True
                     logger.info("[%s] BET %d", name, bet)
+                    play_bet_alert()
                     return name
                 else:
                     s.is_active = False
@@ -296,6 +310,7 @@ class BotEngine:
             or cst.waiting_for_result
             or self.strategy_active
             or not self.autopilot
+            or cst.in_cooldown()
         ):
             return
 
@@ -319,6 +334,7 @@ class BotEngine:
             or cst.waiting_for_result
             or self.strategy_active
             or not self.autopilot
+            or cst.in_cooldown()
         ):
             return
 
@@ -366,7 +382,7 @@ class BotEngine:
             last_n = cst.monitoring_history[-cst.signal_confirm_window :]
             above = sum(1 for m in last_n if m >= cst.signal_confirm_threshold)
             if above >= cst.signal_confirm_count:
-                if not self.strategy_active and self.autopilot:
+                if not self.strategy_active and self.autopilot and not cst.in_cooldown():
                     reason = cst.pending_signal_reason or "signal"
                     logger.info(
                         "[Custom] Signal confirmed during monitoring (%d/%d above %sx) – betting",
@@ -389,6 +405,12 @@ class BotEngine:
     def _activate_custom_betting(self, reason: str = "manual"):
         """Activate the custom strategy and place the first bet."""
         cst = self.custom
+        if cst.in_cooldown():
+            logger.info(
+                "[Custom] Cannot activate – cooldown active (%d rounds remaining)",
+                cst.cooldown_remaining,
+            )
+            return
         cst.stop_monitoring()
         cst.is_active = True
         self.strategy_active = True
@@ -402,6 +424,7 @@ class BotEngine:
             cst.current_bet = bet
             cst.waiting_for_result = True
             logger.info("[Custom] BET %d (reason: %s)", bet, reason)
+            play_bet_alert()
         else:
             cst.reset()
             self.strategy_active = False
@@ -432,6 +455,17 @@ class BotEngine:
                     cst.total_wins,
                 )
                 cst.full_reset()
+                self.strategy_active = False
+                return
+
+            # Start cooldown if configured
+            if cst.cooldown_after_win > 0:
+                cst.start_cooldown()
+                logger.info(
+                    "[Custom] Win cooldown started – pausing for %d rounds",
+                    cst.cooldown_after_win,
+                )
+                cst.reset()
                 self.strategy_active = False
                 return
 
@@ -584,9 +618,15 @@ class BotEngine:
                 s.current_bet = bet
                 s.waiting_for_result = True
                 logger.info("[%s] Manually activated", name)
+                play_bet_alert()
 
     def _manual_activate_custom(self):
-        if self.custom and not self.custom.is_active and not self.strategy_active:
+        if self.custom and self.custom.in_cooldown():
+            logger.warning(
+                "[Custom] Cannot activate – cooldown active (%d rounds remaining)",
+                self.custom.cooldown_remaining,
+            )
+        elif self.custom and not self.custom.is_active and not self.strategy_active:
             logger.info("[Custom] Manually activated")
             self._activate_custom_betting(reason="manual")
         elif self.custom and self.strategy_active:
@@ -674,11 +714,12 @@ class BotEngine:
             if self.custom.activate_on_high_deviation_15:
                 triggers.append("stddev15")
             logger.info(
-                "  [Custom] cashout=%sx, window=%d/%d, stop_profit=%d, confirm=%d+/%d>%sx, monitor=%d, triggers=[%s]",
+                "  [Custom] cashout=%sx, window=%d/%d, stop_profit=%d, cooldown=%d, confirm=%d+/%d>%sx, monitor=%d, triggers=[%s]",
                 self.custom.auto_cashout,
                 self.custom.max_losses_in_window,
                 self.custom.loss_check_window,
                 self.custom.stop_profit_count,
+                self.custom.cooldown_after_win,
                 self.custom.signal_confirm_count,
                 self.custom.signal_confirm_window,
                 self.custom.signal_confirm_threshold,

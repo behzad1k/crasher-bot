@@ -59,6 +59,7 @@ class CustomStrategyConfig:
     loss_check_window: int = 10
     bet_multiplier: float = 2.0
     stop_profit_count: int = 0
+    cooldown_after_win: int = 0
     enabled: bool = False
     # Activation triggers
     activate_on_strong_hotstreak: bool = True
@@ -142,6 +143,7 @@ class BotConfig:
                 "loss_check_window": cs.loss_check_window,
                 "bet_multiplier": cs.bet_multiplier,
                 "stop_profit_count": cs.stop_profit_count,
+                "cooldown_after_win": cs.cooldown_after_win,
                 "enabled": cs.enabled,
                 "activate_on_strong_hotstreak": cs.activate_on_strong_hotstreak,
                 "activate_on_weak_hotstreak": cs.activate_on_weak_hotstreak,

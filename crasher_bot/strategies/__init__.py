@@ -49,6 +49,7 @@ class CustomState:
     loss_check_window: int
     bet_multiplier: float
     stop_profit_count: int = 0
+    cooldown_after_win: int = 0
     name: str = "Custom"
 
     # Activation triggers
@@ -80,9 +81,28 @@ class CustomState:
     monitoring_history: List[float] = field(default_factory=list)
     pending_signal_reason: Optional[str] = None
 
+    # Cooldown state
+    cooldown_remaining: int = 0
+
     def __post_init__(self):
         if self.current_bet == 0.0:
             self.current_bet = self.base_bet
+
+    # ── Cooldown ───────────────────────────────────────────────────
+
+    def start_cooldown(self):
+        """Start the post-win cooldown period."""
+        if self.cooldown_after_win > 0:
+            self.cooldown_remaining = self.cooldown_after_win
+
+    def tick_cooldown(self):
+        """Decrement cooldown by one round. Call once per round."""
+        if self.cooldown_remaining > 0:
+            self.cooldown_remaining -= 1
+
+    def in_cooldown(self) -> bool:
+        """Returns True if currently in a post-win cooldown period."""
+        return self.cooldown_remaining > 0
 
     # ── Signal activation checks ───────────────────────────────────
 
@@ -152,6 +172,7 @@ class CustomState:
         self.total_wins = 0
         self.recent_outcomes = []
         self.stop_monitoring()
+        self.cooldown_remaining = 0
 
     def record_outcome(self, outcome: str):
         self.recent_outcomes.append(outcome)

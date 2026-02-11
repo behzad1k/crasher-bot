@@ -7,6 +7,7 @@ from typing import List, Optional
 
 try:
     import undetected_chromedriver as uc
+
     UC_AVAILABLE = True
 except ImportError:
     UC_AVAILABLE = False
@@ -115,7 +116,7 @@ class GameDriver:
             opts.add_argument("--window-size=1920,1080")
             opts.add_argument("--enable-webgl")
             opts.add_argument("--disable-extensions")
-            self.driver = uc.Chrome(options=opts, version_main=143, use_subprocess=True)
+            self.driver = uc.Chrome(options=opts, version_main=145, use_subprocess=True)
             self.driver.set_page_load_timeout(60)
             self.driver.implicitly_wait(10)
             self.driver.set_script_timeout(15)
@@ -180,7 +181,12 @@ class GameDriver:
             )
             iframes = self.driver.find_elements(By.TAG_NAME, "iframe")
             game_iframe = next(
-                (f for f in iframes if (f.get_attribute("src") or "") and len(f.get_attribute("src")) > 50),
+                (
+                    f
+                    for f in iframes
+                    if (f.get_attribute("src") or "")
+                    and len(f.get_attribute("src")) > 50
+                ),
                 None,
             )
             if not game_iframe:
@@ -239,7 +245,9 @@ class GameDriver:
             txt = self.driver.execute_script(JS_BALANCE)
             if not txt:
                 return None
-            cleaned = str(txt).strip().replace("IRT", "").replace(",", "").replace(" ", "")
+            cleaned = (
+                str(txt).strip().replace("IRT", "").replace(",", "").replace(" ", "")
+            )
             return float(cleaned)
         except (ValueError, Exception):
             return None
@@ -265,9 +273,15 @@ class GameDriver:
                 self.driver.execute_script(JS_TOGGLE_CASHOUT)
                 time.sleep(0.2)
 
-                panels = self.driver.find_elements(By.CSS_SELECTOR, "div[data-singlebetpart]")
-                inp = panels[0].find_element(By.CSS_SELECTOR, 'input[data-testid="aut-co-inp"]')
-                self.driver.execute_script("arguments[0].scrollIntoView({block:'center'});", inp)
+                panels = self.driver.find_elements(
+                    By.CSS_SELECTOR, "div[data-singlebetpart]"
+                )
+                inp = panels[0].find_element(
+                    By.CSS_SELECTOR, 'input[data-testid="aut-co-inp"]'
+                )
+                self.driver.execute_script(
+                    "arguments[0].scrollIntoView({block:'center'});", inp
+                )
                 time.sleep(0.1)
 
                 ActionChains(self.driver).move_to_element(inp).click().perform()
@@ -288,7 +302,9 @@ class GameDriver:
 
     def place_bet(self, amount: float) -> bool:
         try:
-            panels = self.driver.find_elements(By.CSS_SELECTOR, "div[data-singlebetpart]")
+            panels = self.driver.find_elements(
+                By.CSS_SELECTOR, "div[data-singlebetpart]"
+            )
             if not panels:
                 return False
             inp = panels[0].find_element(By.CSS_SELECTOR, 'input[data-testid="bp-inp"]')
@@ -300,7 +316,9 @@ class GameDriver:
             inp.send_keys(str(int(amount)))
             time.sleep(0.1)
 
-            panels[0].find_element(By.CSS_SELECTOR, 'button[data-testid="b-btn"]').click()
+            panels[0].find_element(
+                By.CSS_SELECTOR, 'button[data-testid="b-btn"]'
+            ).click()
             time.sleep(0.1)
             logger.info("Bet placed: %d", amount)
             return True
