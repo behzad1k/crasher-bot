@@ -50,6 +50,7 @@ class CustomState:
     bet_multiplier: float
     stop_profit_count: int = 0
     cooldown_after_win: int = 0
+    cooldown_after_loss: int = 0
     name: str = "Custom"
 
     # Activation triggers
@@ -83,6 +84,7 @@ class CustomState:
 
     # Cooldown state
     cooldown_remaining: int = 0
+    _cooldown_type: str = ""  # "win" or "loss" — informational only
 
     def __post_init__(self):
         if self.current_bet == 0.0:
@@ -94,6 +96,13 @@ class CustomState:
         """Start the post-win cooldown period."""
         if self.cooldown_after_win > 0:
             self.cooldown_remaining = self.cooldown_after_win
+            self._cooldown_type = "win"
+
+    def start_loss_cooldown(self):
+        """Start the post-loss cooldown period."""
+        if self.cooldown_after_loss > 0:
+            self.cooldown_remaining = self.cooldown_after_loss
+            self._cooldown_type = "loss"
 
     def tick_cooldown(self):
         """Decrement cooldown by one round. Call once per round."""
@@ -101,8 +110,15 @@ class CustomState:
             self.cooldown_remaining -= 1
 
     def in_cooldown(self) -> bool:
-        """Returns True if currently in a post-win cooldown period."""
+        """Returns True if currently in a post-win or post-loss cooldown period."""
         return self.cooldown_remaining > 0
+
+    @property
+    def cooldown_type(self) -> str:
+        """Returns the type of cooldown currently active ('win', 'loss', or '')."""
+        if self.cooldown_remaining > 0:
+            return self._cooldown_type
+        return ""
 
     # ── Signal activation checks ───────────────────────────────────
 
@@ -173,6 +189,7 @@ class CustomState:
         self.recent_outcomes = []
         self.stop_monitoring()
         self.cooldown_remaining = 0
+        self._cooldown_type = ""
 
     def record_outcome(self, outcome: str):
         self.recent_outcomes.append(outcome)

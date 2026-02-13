@@ -1,6 +1,7 @@
 """Main GUI application."""
 
 import logging
+import platform
 import queue
 import threading
 import tkinter as tk
@@ -12,7 +13,12 @@ from crasher_bot.config import BotConfig, get_default_config_path
 from crasher_bot.core import Database
 from crasher_bot.core.engine import BotEngine
 from crasher_bot.ui import Theme
-from crasher_bot.ui.widgets import MultiplierCanvas, SimpleConfigCard, StrategyCard
+from crasher_bot.ui.widgets import (
+    MultiplierCanvas,
+    SimpleConfigCard,
+    StrategyCard,
+    bind_mousewheel,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +57,6 @@ class Application:
         self.root.after(100, self._poll_logs)
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    # ── Config ──────────────────────────────────────────────────────
-
     def _load_config(self) -> dict:
         try:
             with open(self.config_path) as f:
@@ -73,8 +77,6 @@ class Application:
         except Exception as e:
             messagebox.showerror("Error", f"Save failed: {e}")
             return False
-
-    # ── Logging ─────────────────────────────────────────────────────
 
     def _setup_logging(self):
         root_logger = logging.getLogger()
@@ -97,14 +99,8 @@ class Application:
             pass
         self.root.after(100, self._poll_logs)
 
-    # ── Theme ───────────────────────────────────────────────────────
-
     def _apply_theme(self):
         s = ttk.Style()
-
-        # Use 'clam' theme on Windows/Linux for full color control.
-        # The default 'vista'/'winnative' themes ignore most background settings,
-        # causing white inputs, tabs, and comboboxes.
         if self.root.tk.call("tk", "windowingsystem") != "aqua":
             s.theme_use("clam")
 
@@ -130,7 +126,6 @@ class Application:
             font=("Segoe UI", 9),
         )
 
-        # ── Buttons ────────────────────────────────────────────────
         s.configure(
             "TButton",
             borderwidth=0,
@@ -169,7 +164,6 @@ class Application:
             foreground=[("active", "#000000")],
         )
 
-        # ── Entry ──────────────────────────────────────────────────
         s.configure(
             "TEntry",
             fieldbackground=Theme.BG_MEDIUM,
@@ -180,7 +174,6 @@ class Application:
             darkcolor=Theme.BORDER,
         )
 
-        # ── Notebook / Tabs ────────────────────────────────────────
         s.configure(
             "TNotebook",
             background=Theme.BG_DARK,
@@ -201,7 +194,6 @@ class Application:
             foreground=[("selected", Theme.FG_PRIMARY)],
         )
 
-        # ── Checkbuttons ───────────────────────────────────────────
         s.configure(
             "TCheckbutton",
             background=Theme.BG_DARK,
@@ -228,7 +220,6 @@ class Application:
             background=[("active", Theme.BG_LIGHT)],
         )
 
-        # ── Combobox ───────────────────────────────────────────────
         s.configure(
             "TCombobox",
             fieldbackground=Theme.BG_MEDIUM,
@@ -248,7 +239,6 @@ class Application:
             selectbackground=[("readonly", Theme.BG_MEDIUM)],
             selectforeground=[("readonly", Theme.FG_PRIMARY)],
         )
-        # Dark dropdown listbox for combobox
         self.root.option_add("*TCombobox*Listbox.background", Theme.BG_MEDIUM)
         self.root.option_add("*TCombobox*Listbox.foreground", Theme.FG_PRIMARY)
         self.root.option_add(
@@ -256,7 +246,6 @@ class Application:
         )
         self.root.option_add("*TCombobox*Listbox.selectForeground", Theme.FG_PRIMARY)
 
-        # ── Scrollbar ──────────────────────────────────────────────
         s.configure(
             "Vertical.TScrollbar",
             background=Theme.BG_MEDIUM,
@@ -265,8 +254,6 @@ class Application:
             bordercolor=Theme.BG_DARK,
         )
         s.map("Vertical.TScrollbar", background=[("active", Theme.BG_HOVER)])
-
-    # ── UI Build ────────────────────────────────────────────────────
 
     def _build_ui(self):
         nb = ttk.Notebook(self.root)
@@ -280,7 +267,7 @@ class Application:
         tab = ttk.Frame(nb)
         nb.add(tab, text="Control")
 
-        # ── Credentials card ───────────────────────────────────────
+        # Credentials card
         cred_card = ttk.Frame(tab, style="Card.TFrame")
         cred_card.pack(fill=tk.X, padx=20, pady=(20, 10))
         ttk.Label(
@@ -317,7 +304,7 @@ class Application:
             style="Switch.TCheckbutton",
         ).pack(side=tk.LEFT, padx=5)
 
-        # ── Bot control card ──────────────────────────────────────
+        # Bot control card
         card = ttk.Frame(tab, style="Card.TFrame")
         card.pack(fill=tk.X, padx=20, pady=(0, 10))
         ttk.Label(
@@ -361,7 +348,7 @@ class Application:
             style="Switch.TCheckbutton",
         ).pack(pady=5)
 
-        # Manual activation
+        # Manual activation (scrollable)
         mf = ttk.Frame(tab, style="Card.TFrame")
         mf.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 20))
         ttk.Label(
@@ -370,15 +357,36 @@ class Application:
             font=("Segoe UI", 14, "bold"),
             style="Heading.TLabel",
         ).pack(pady=10)
-        self._manual_frame = ttk.Frame(mf, style="Card.TFrame")
-        self._manual_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        manual_canvas = tk.Canvas(mf, bg=Theme.BG_LIGHT, highlightthickness=0)
+        manual_scrollbar = ttk.Scrollbar(
+            mf, orient=tk.VERTICAL, command=manual_canvas.yview
+        )
+        self._manual_frame = ttk.Frame(manual_canvas, style="Card.TFrame")
+
+        self._manual_frame.bind(
+            "<Configure>",
+            lambda e: manual_canvas.configure(scrollregion=manual_canvas.bbox("all")),
+        )
+        manual_canvas.create_window(
+            (0, 0), window=self._manual_frame, anchor=tk.NW, tags="inner"
+        )
+        manual_canvas.bind(
+            "<Configure>", lambda e: manual_canvas.itemconfigure("inner", width=e.width)
+        )
+        manual_canvas.configure(yscrollcommand=manual_scrollbar.set)
+
+        manual_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        manual_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        self._manual_canvas = manual_canvas
+        bind_mousewheel(self._manual_frame, manual_canvas)
         self._refresh_manual_buttons()
 
     def _build_strategy_tab(self, nb: ttk.Notebook):
         tab = ttk.Frame(nb)
         nb.add(tab, text="Strategies")
 
-        # Apply button pinned at the bottom
         bottom = ttk.Frame(tab)
         bottom.pack(side=tk.BOTTOM, fill=tk.X, padx=10, pady=10)
         ttk.Button(
@@ -429,18 +437,8 @@ class Application:
         primary_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         primary_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=20, pady=10)
 
-        def _on_primary_mousewheel(event):
-            primary_canvas.yview_scroll(-1 * (event.delta // 120), "units")
-
-        primary_canvas.bind("<MouseWheel>", _on_primary_mousewheel)
-        primary_canvas.bind(
-            "<Button-4>", lambda e: primary_canvas.yview_scroll(-3, "units")
-        )
-        primary_canvas.bind(
-            "<Button-5>", lambda e: primary_canvas.yview_scroll(3, "units")
-        )
-
         self._primary_canvas = primary_canvas
+        bind_mousewheel(self._primary_frame, primary_canvas)
         self._refresh_primary_cards()
 
         # Custom
@@ -458,6 +456,7 @@ class Application:
                 "bet_multiplier": 2.0,
                 "stop_profit_count": 0,
                 "cooldown_after_win": 0,
+                "cooldown_after_loss": 0,
                 "activate_on_strong_hotstreak": True,
                 "activate_on_weak_hotstreak": False,
                 "activate_on_rule_of_17": True,
@@ -503,7 +502,6 @@ class Application:
 
         header = ttk.Frame(tab, style="Card.TFrame")
         header.pack(fill=tk.X, padx=20, pady=(10, 0))
-
         ttk.Label(header, text="Session:", style="Heading.TLabel").pack(
             side=tk.LEFT, padx=(10, 5), pady=8
         )
@@ -530,7 +528,6 @@ class Application:
 
         stats = ttk.Frame(tab, style="Card.TFrame")
         stats.pack(fill=tk.X, padx=20, pady=(5, 0))
-
         self._history_stats = ttk.Label(
             stats, text="", style="Heading.TLabel", foreground=Theme.FG_SECONDARY
         )
@@ -545,7 +542,6 @@ class Application:
         self._mult_display = MultiplierCanvas(display_frame, height=500, max_display=0)
         self._mult_display.MAX_DISPLAY = 0
         self._mult_display.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
         self._mult_display.configure(yscrollcommand=scrollbar.set)
         scrollbar.configure(command=self._mult_display.yview)
 
@@ -563,16 +559,14 @@ class Application:
 
         self._session_map.clear()
         labels = []
-
         for sid, start_ts, end_ts, count in sessions:
             start_str = self._format_ts(start_ts)
             end_str = self._format_ts(end_ts) if end_ts else "running"
-            label = f"#{sid}  |  {start_str} → {end_str}  |  {count} rounds"
+            label = f"#{sid}  |  {start_str} -> {end_str}  |  {count} rounds"
             labels.append(label)
             self._session_map[label] = sid
 
         self._session_combo["values"] = labels
-
         if labels:
             self._session_combo.current(0)
             self._on_session_selected()
@@ -586,7 +580,6 @@ class Application:
         sid = self._session_map.get(label)
         if sid is None:
             return
-
         try:
             db = self._get_history_db()
             mults = db.get_all_session_multipliers(sid)
@@ -606,7 +599,7 @@ class Application:
             pct = (above_2x / len(mults)) * 100
             mx = max(mults)
             self._history_stats.configure(
-                text=f"{len(mults)} rounds  |  Avg: {avg:.2f}x  |  Max: {mx:.2f}x  |  ≥2x: {above_2x} ({pct:.0f}%)"
+                text=f"{len(mults)} rounds  |  Avg: {avg:.2f}x  |  Max: {mx:.2f}x  |  >=2x: {above_2x} ({pct:.0f}%)"
             )
         else:
             self._history_stats.configure(text="Empty session")
@@ -639,7 +632,6 @@ class Application:
     def _start_bot(self):
         if self.bot_running:
             return
-        # Sync credentials from UI
         self.config["username"] = self._username_entry.get().strip()
         self.config["password"] = self._password_entry.get().strip()
         cfg = BotConfig.from_dict(self.config)
@@ -724,6 +716,8 @@ class Application:
                 command=self._activate_custom,
                 width=40,
             ).pack(pady=3, anchor=tk.W)
+        # Re-bind mousewheel after rebuilding buttons
+        bind_mousewheel(self._manual_frame, self._manual_canvas)
 
     def _activate_primary(self, idx: int):
         if not self.bot:
@@ -754,6 +748,7 @@ class Application:
                 on_delete=lambda idx=i: self._delete_primary(idx),
             )
             self._primary_cards.append(card)
+        bind_mousewheel(self._primary_frame, self._primary_canvas)
 
     def _add_primary(self):
         n = len(self.config.get("strategies", [])) + 1
@@ -788,8 +783,6 @@ class Application:
                     {"action": "reload_config", "config": self.config}
                 )
             messagebox.showinfo("Success", "Changes applied!")
-
-    # ── Lifecycle ───────────────────────────────────────────────────
 
     def _on_close(self):
         if self.bot_running:
@@ -857,6 +850,12 @@ class CustomConfigCard(ttk.Frame):
             "Cooldown After Win (0=off):",
             int,
             "Number of rounds to skip betting after each win. 0 to disable.",
+        ),
+        (
+            "cooldown_after_loss",
+            "Cooldown After Loss (0=off):",
+            int,
+            "Number of rounds to skip betting after each loss. 0 to disable.",
         ),
     ]
 
@@ -932,25 +931,19 @@ class CustomConfigCard(ttk.Frame):
         inner = ttk.Frame(canvas, style="Card.TFrame")
 
         inner.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all")),
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
         )
         canvas.create_window((0, 0), window=inner, anchor=tk.NW, tags="inner")
         canvas.bind(
-            "<Configure>",
-            lambda e: canvas.itemconfigure("inner", width=e.width),
+            "<Configure>", lambda e: canvas.itemconfigure("inner", width=e.width)
         )
         canvas.configure(yscrollcommand=scrollbar.set)
 
-        def _on_mousewheel(event):
-            canvas.yview_scroll(-1 * (event.delta // 120), "units")
-
-        canvas.bind("<MouseWheel>", _on_mousewheel)
-        canvas.bind("<Button-4>", lambda e: canvas.yview_scroll(-3, "units"))
-        canvas.bind("<Button-5>", lambda e: canvas.yview_scroll(3, "units"))
-
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        # Bind mousewheel scrolling to the inner frame and all children
+        bind_mousewheel(inner, canvas)
 
         # ── Title ──────────────────────────────────────────────────
         ttk.Label(
@@ -1001,18 +994,12 @@ class CustomConfigCard(ttk.Frame):
         for key, label, desc in self.TRIGGER_FLAGS:
             var = tk.BooleanVar(value=data.get(key, False))
             cb = ttk.Checkbutton(
-                inner,
-                text=label,
-                variable=var,
-                style="Switch.TCheckbutton",
+                inner, text=label, variable=var, style="Switch.TCheckbutton"
             )
             cb.pack(anchor=tk.W, padx=10, pady=1)
-            ttk.Label(
-                inner,
-                text=desc,
-                style="Desc.TLabel",
-                wraplength=480,
-            ).pack(anchor=tk.W, padx=30, pady=(0, 4))
+            ttk.Label(inner, text=desc, style="Desc.TLabel", wraplength=480).pack(
+                anchor=tk.W, padx=30, pady=(0, 4)
+            )
             self._trigger_vars[key] = var
 
         # ── Enabled ────────────────────────────────────────────────
@@ -1024,14 +1011,14 @@ class CustomConfigCard(ttk.Frame):
             style="Switch.TCheckbutton",
         ).pack(pady=10)
 
+        # Re-bind after all widgets are created
+        bind_mousewheel(inner, canvas)
+
     def _section_label(self, parent, text: str):
         f = ttk.Frame(parent, style="Card.TFrame")
         f.pack(fill=tk.X, pady=(12, 4))
         ttk.Label(
-            f,
-            text=text,
-            font=("Segoe UI", 11, "bold"),
-            style="Heading.TLabel",
+            f, text=text, font=("Segoe UI", 11, "bold"), style="Heading.TLabel"
         ).pack(anchor=tk.W, padx=10)
 
     def _add_field(

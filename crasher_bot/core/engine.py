@@ -73,6 +73,7 @@ class BotEngine:
                 bet_multiplier=cs.bet_multiplier,
                 stop_profit_count=cs.stop_profit_count,
                 cooldown_after_win=cs.cooldown_after_win,
+                cooldown_after_loss=cs.cooldown_after_loss,
                 activate_on_strong_hotstreak=cs.activate_on_strong_hotstreak,
                 activate_on_weak_hotstreak=cs.activate_on_weak_hotstreak,
                 activate_on_rule_of_17=cs.activate_on_rule_of_17,
@@ -182,7 +183,8 @@ class BotEngine:
                     self.custom.tick_cooldown()
                     if self.custom.in_cooldown():
                         logger.info(
-                            "[Custom] Cooldown: %d rounds remaining",
+                            "[Custom] Cooldown (%s): %d rounds remaining",
+                            self.custom.cooldown_type,
                             self.custom.cooldown_remaining,
                         )
                     else:
@@ -382,7 +384,11 @@ class BotEngine:
             last_n = cst.monitoring_history[-cst.signal_confirm_window :]
             above = sum(1 for m in last_n if m >= cst.signal_confirm_threshold)
             if above >= cst.signal_confirm_count:
-                if not self.strategy_active and self.autopilot and not cst.in_cooldown():
+                if (
+                    not self.strategy_active
+                    and self.autopilot
+                    and not cst.in_cooldown()
+                ):
                     reason = cst.pending_signal_reason or "signal"
                     logger.info(
                         "[Custom] Signal confirmed during monitoring (%d/%d above %sx) – betting",
@@ -517,6 +523,17 @@ class BotEngine:
                     cst.loss_check_window,
                 )
                 cst.full_reset()
+                self.strategy_active = False
+                return
+
+            # Start loss cooldown if configured
+            if cst.cooldown_after_loss > 0:
+                cst.start_loss_cooldown()
+                logger.info(
+                    "[Custom] Loss cooldown started – pausing for %d rounds",
+                    cst.cooldown_after_loss,
+                )
+                cst.reset()
                 self.strategy_active = False
                 return
 
@@ -714,12 +731,13 @@ class BotEngine:
             if self.custom.activate_on_high_deviation_15:
                 triggers.append("stddev15")
             logger.info(
-                "  [Custom] cashout=%sx, window=%d/%d, stop_profit=%d, cooldown=%d, confirm=%d+/%d>%sx, monitor=%d, triggers=[%s]",
+                "  [Custom] cashout=%sx, window=%d/%d, stop_profit=%d, cd_win=%d, cd_loss=%d, confirm=%d+/%d>%sx, monitor=%d, triggers=[%s]",
                 self.custom.auto_cashout,
                 self.custom.max_losses_in_window,
                 self.custom.loss_check_window,
                 self.custom.stop_profit_count,
                 self.custom.cooldown_after_win,
+                self.custom.cooldown_after_loss,
                 self.custom.signal_confirm_count,
                 self.custom.signal_confirm_window,
                 self.custom.signal_confirm_threshold,

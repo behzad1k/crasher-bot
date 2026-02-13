@@ -25,6 +25,8 @@
     "loss_check_window": 10,
     "bet_multiplier": 2.0,
     "stop_profit_count": 0,
+    "cooldown_after_win": 0,
+    "cooldown_after_loss": 0,
     "activate_on_strong_hotstreak": true,
     "activate_on_weak_hotstreak": false,
     "activate_on_rule_of_17": true,

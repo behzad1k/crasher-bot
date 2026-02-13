@@ -1,10 +1,56 @@
 """Reusable GUI widgets."""
 
+import platform
 import tkinter as tk
 from tkinter import ttk
 from typing import Callable, Dict, Optional
 
 from crasher_bot.ui import Theme
+
+
+def bind_mousewheel(widget, canvas):
+    """Bind mousewheel scrolling to a canvas from any child widget.
+    Works on Windows, macOS, and Linux."""
+    system = platform.system()
+
+    def _on_mousewheel(event):
+        if system == "Darwin":
+            canvas.yview_scroll(-1 * event.delta, "units")
+        elif system == "Windows":
+            canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        else:
+            # Linux uses Button-4/Button-5 instead
+            pass
+
+    def _on_linux_scroll_up(event):
+        canvas.yview_scroll(-3, "units")
+
+    def _on_linux_scroll_down(event):
+        canvas.yview_scroll(3, "units")
+
+    def _bind_to_widget(w):
+        if system == "Linux":
+            w.bind("<Button-4>", _on_linux_scroll_up, add="+")
+            w.bind("<Button-5>", _on_linux_scroll_down, add="+")
+        else:
+            w.bind("<MouseWheel>", _on_mousewheel, add="+")
+
+    def _bind_recursive(w):
+        _bind_to_widget(w)
+        for child in w.winfo_children():
+            _bind_recursive(child)
+
+    # Bind to the canvas itself
+    _bind_to_widget(canvas)
+
+    # Bind to all existing children
+    _bind_recursive(widget)
+
+    # Re-bind whenever new children are added
+    def _on_child_configure(event):
+        _bind_recursive(widget)
+
+    widget.bind("<Configure>", _on_child_configure, add="+")
 
 
 class MultiplierCanvas(tk.Canvas):
@@ -20,13 +66,20 @@ class MultiplierCanvas(tk.Canvas):
         self.multipliers: list[float] = []
         self.bind("<Configure>", lambda _: self.draw())
 
-        # Enable mousewheel scrolling
-        self.bind("<MouseWheel>", self._on_mousewheel)
-        self.bind("<Button-4>", lambda e: self.yview_scroll(-3, "units"))
-        self.bind("<Button-5>", lambda e: self.yview_scroll(3, "units"))
-
-    def _on_mousewheel(self, event):
-        self.yview_scroll(-1 * (event.delta // 120), "units")
+        # Enable mousewheel scrolling directly on canvas
+        system = platform.system()
+        if system == "Darwin":
+            self.bind(
+                "<MouseWheel>", lambda e: self.yview_scroll(-1 * e.delta, "units")
+            )
+        elif system == "Windows":
+            self.bind(
+                "<MouseWheel>",
+                lambda e: self.yview_scroll(-1 * (e.delta // 120), "units"),
+            )
+        else:
+            self.bind("<Button-4>", lambda e: self.yview_scroll(-3, "units"))
+            self.bind("<Button-5>", lambda e: self.yview_scroll(3, "units"))
 
     def add(self, mult: float):
         self.multipliers.append(mult)
