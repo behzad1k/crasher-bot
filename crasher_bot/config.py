@@ -67,6 +67,7 @@ class CustomStrategyConfig:
     activate_on_weak_hotstreak: bool = False
     activate_on_rule_of_17: bool = True
     activate_on_pre_streak_pattern: bool = True
+    activate_on_possible_chain: bool = False
     activate_on_high_deviation_10: bool = False
     activate_on_high_deviation_15: bool = False
     # Signal confirmation
@@ -151,6 +152,7 @@ class BotConfig:
                 "activate_on_weak_hotstreak": cs.activate_on_weak_hotstreak,
                 "activate_on_rule_of_17": cs.activate_on_rule_of_17,
                 "activate_on_pre_streak_pattern": cs.activate_on_pre_streak_pattern,
+                "activate_on_possible_chain": cs.activate_on_possible_chain,
                 "activate_on_high_deviation_10": cs.activate_on_high_deviation_10,
                 "activate_on_high_deviation_15": cs.activate_on_high_deviation_15,
                 "signal_confirm_threshold": cs.signal_confirm_threshold,

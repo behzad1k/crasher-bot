@@ -78,6 +78,7 @@ class BotEngine:
                 activate_on_weak_hotstreak=cs.activate_on_weak_hotstreak,
                 activate_on_rule_of_17=cs.activate_on_rule_of_17,
                 activate_on_pre_streak_pattern=cs.activate_on_pre_streak_pattern,
+                activate_on_possible_chain=cs.activate_on_possible_chain,
                 activate_on_high_deviation_10=cs.activate_on_high_deviation_10,
                 activate_on_high_deviation_15=cs.activate_on_high_deviation_15,
                 signal_confirm_threshold=cs.signal_confirm_threshold,
@@ -509,32 +510,43 @@ class BotEngine:
 
             # Check max consecutive losses
             if cst.consecutive_losses >= cst.max_consecutive_losses:
-                logger.info("[Custom] Max consecutive losses – stopping")
-                cst.full_reset()
-                self.strategy_active = False
+                if cst.cooldown_after_loss > 0:
+                    logger.info(
+                        "[Custom] Max consecutive losses (%d) – entering cooldown for %d rounds",
+                        cst.consecutive_losses,
+                        cst.cooldown_after_loss,
+                    )
+                    cst.start_loss_cooldown()
+                    cst.reset()
+                    self.strategy_active = False
+                else:
+                    logger.info("[Custom] Max consecutive losses – stopping")
+                    cst.full_reset()
+                    self.strategy_active = False
                 return
 
             # Check window loss limit
             if cst.should_stop_for_window_losses():
-                logger.info(
-                    "[Custom] Window loss limit (%d/%d in last %d) – stopping",
-                    cst.losses_in_window(),
-                    cst.max_losses_in_window,
-                    cst.loss_check_window,
-                )
-                cst.full_reset()
-                self.strategy_active = False
-                return
-
-            # Start loss cooldown if configured
-            if cst.cooldown_after_loss > 0:
-                cst.start_loss_cooldown()
-                logger.info(
-                    "[Custom] Loss cooldown started – pausing for %d rounds",
-                    cst.cooldown_after_loss,
-                )
-                cst.reset()
-                self.strategy_active = False
+                if cst.cooldown_after_loss > 0:
+                    logger.info(
+                        "[Custom] Window loss limit (%d/%d in last %d) – entering cooldown for %d rounds",
+                        cst.losses_in_window(),
+                        cst.max_losses_in_window,
+                        cst.loss_check_window,
+                        cst.cooldown_after_loss,
+                    )
+                    cst.start_loss_cooldown()
+                    cst.reset()
+                    self.strategy_active = False
+                else:
+                    logger.info(
+                        "[Custom] Window loss limit (%d/%d in last %d) – stopping",
+                        cst.losses_in_window(),
+                        cst.max_losses_in_window,
+                        cst.loss_check_window,
+                    )
+                    cst.full_reset()
+                    self.strategy_active = False
                 return
 
             # Continue betting with martingale
@@ -665,12 +677,8 @@ class BotEngine:
             if s.consecutive_losses >= s.max_consecutive_losses:
                 logger.warning("[%s] Max consecutive losses", s.name)
                 return False
-        if (
-            self.custom
-            and self.custom.consecutive_losses >= self.custom.max_consecutive_losses
-        ):
-            logger.warning("[Custom] Max consecutive losses")
-            return False
+        # Note: Custom strategy max losses are handled within _custom_result
+        # via cooldown or full_reset, so we don't stop the entire bot here.
         return True
 
     # ── Shutdown ────────────────────────────────────────────────────
@@ -726,6 +734,8 @@ class BotEngine:
                 triggers.append("rule17")
             if self.custom.activate_on_pre_streak_pattern:
                 triggers.append("pre_streak")
+            if self.custom.activate_on_possible_chain:
+                triggers.append("possible_chain")
             if self.custom.activate_on_high_deviation_10:
                 triggers.append("stddev10")
             if self.custom.activate_on_high_deviation_15:

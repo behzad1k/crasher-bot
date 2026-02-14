@@ -461,6 +461,7 @@ class Application:
                 "activate_on_weak_hotstreak": False,
                 "activate_on_rule_of_17": True,
                 "activate_on_pre_streak_pattern": True,
+                "activate_on_possible_chain": False,
                 "activate_on_high_deviation_10": False,
                 "activate_on_high_deviation_15": False,
                 "signal_confirm_threshold": 2.0,
@@ -853,9 +854,10 @@ class CustomConfigCard(ttk.Frame):
         ),
         (
             "cooldown_after_loss",
-            "Cooldown After Loss (0=off):",
+            "Cooldown After Loss Limit (0=off):",
             int,
-            "Number of rounds to skip betting after each loss. 0 to disable.",
+            "Rounds to pause when max consecutive losses or window loss limit is hit. "
+            "0 = stop permanently instead of cooling down.",
         ),
     ]
 
@@ -906,6 +908,12 @@ class CustomConfigCard(ttk.Frame):
             "activate_on_pre_streak_pattern",
             "Activate on Pre-Streak Pattern",
             "Trigger when avg > 3.75x with high volatility in the last 10 rounds.",
+        ),
+        (
+            "activate_on_possible_chain",
+            "Activate on Possible Chain",
+            "Trigger when a possible chain pattern is detected after a hotstreak ends "
+            "(avg > 2x, 4+ above 2x in last 10, no cold streak).",
         ),
         (
             "activate_on_high_deviation_10",

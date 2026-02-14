@@ -58,6 +58,7 @@ class CustomState:
     activate_on_weak_hotstreak: bool = False
     activate_on_rule_of_17: bool = True
     activate_on_pre_streak_pattern: bool = True
+    activate_on_possible_chain: bool = False
     activate_on_high_deviation_10: bool = False
     activate_on_high_deviation_15: bool = False
 
@@ -99,7 +100,7 @@ class CustomState:
             self._cooldown_type = "win"
 
     def start_loss_cooldown(self):
-        """Start the post-loss cooldown period."""
+        """Start the post-loss cooldown period (triggered by max losses or window losses)."""
         if self.cooldown_after_loss > 0:
             self.cooldown_remaining = self.cooldown_after_loss
             self._cooldown_type = "loss"
@@ -127,7 +128,7 @@ class CustomState:
         mapping = {
             "pre_streak": self.activate_on_pre_streak_pattern,
             "rule_of_17": self.activate_on_rule_of_17,
-            "possible_chain": False,
+            "possible_chain": self.activate_on_possible_chain,
             "dead_ass_chain": False,
         }
         if signal_name in mapping:
