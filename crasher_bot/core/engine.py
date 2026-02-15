@@ -189,21 +189,28 @@ class BotEngine:
                             self.custom.cooldown_remaining,
                         )
                     else:
-                        logger.info("[Custom] Cooldown finished – ready to bet again")
+                        logger.info(
+                            "[Custom] Cooldown finished – ready for new signals"
+                        )
 
                 # Custom strategy – handle active bets
                 if self.custom and self.custom.waiting_for_result:
                     self._custom_result(mult)
 
-                # Custom strategy – signal monitoring
-                if self.custom and self.custom.monitoring and not self.custom.is_active:
+                # Custom strategy – signal monitoring (skip during cooldown)
+                if (
+                    self.custom
+                    and self.custom.monitoring
+                    and not self.custom.is_active
+                    and not self.custom.in_cooldown()
+                ):
                     self._custom_monitor_round(mult)
 
-                # Custom strategy – hotstreak activation
-                if self.custom:
+                # Custom strategy – hotstreak activation (skip during cooldown)
+                if self.custom and not self.custom.in_cooldown():
                     self._check_custom_hotstreak()
 
-                # Signal analysis (only when idle)
+                # Signal analysis (only when idle and not in cooldown)
                 if not self.strategy_active and not active_name:
                     self._analyze_signals()
 
@@ -457,29 +464,32 @@ class BotEngine:
 
             # Check stop-profit condition
             if cst.should_stop_for_profit():
-                logger.info(
-                    "[Custom] Stop-profit reached (%d wins) – stopping",
-                    cst.total_wins,
-                )
-                cst.full_reset()
-                self.strategy_active = False
+                if cst.cooldown_after_win > 0:
+                    # Stop-profit hit with cooldown: drop signal, pause for N rounds,
+                    # then start fresh looking for new signals
+                    logger.info(
+                        "[Custom] Stop-profit reached (%d wins) – entering cooldown for %d rounds",
+                        cst.total_wins,
+                        cst.cooldown_after_win,
+                    )
+
+                    cst.total_wins = 0
+                    cst.start_cooldown()
+                    cst.enter_cooldown_reset()
+                    self.strategy_active = False
+                else:
+                    # Stop-profit hit without cooldown: stop permanently
+                    logger.info(
+                        "[Custom] Stop-profit reached (%d wins) – stopping",
+                        cst.total_wins,
+                    )
+                    cst.full_reset()
+                    self.strategy_active = False
                 return
 
-            # Start cooldown if configured
-            if cst.cooldown_after_win > 0:
-                cst.start_cooldown()
-                logger.info(
-                    "[Custom] Win cooldown started – pausing for %d rounds",
-                    cst.cooldown_after_win,
-                )
-                cst.reset()
-                self.strategy_active = False
-                return
-
-            # Continue betting if still in hotstreak or recently ended one
-            if self.autopilot and (
-                self.tracker.in_hotstreak() or self.tracker.just_ended_hotstreak()
-            ):
+            # Continue betting — the strategy is active, keep going
+            # regardless of hotstreak status
+            if self.autopilot:
                 time.sleep(1)
                 bet = cst.next_bet()
                 if self.driver.place_bet(bet):
@@ -490,7 +500,7 @@ class BotEngine:
                     cst.reset()
                     self.strategy_active = False
             else:
-                logger.info("[Custom] No active hotstreak/signal – pausing")
+                logger.info("[Custom] Autopilot off – pausing")
                 cst.reset()
                 self.strategy_active = False
         else:
@@ -511,13 +521,15 @@ class BotEngine:
             # Check max consecutive losses
             if cst.consecutive_losses >= cst.max_consecutive_losses:
                 if cst.cooldown_after_loss > 0:
+                    # Max losses hit with cooldown: drop signal, pause for N rounds,
+                    # then start fresh looking for new signals
                     logger.info(
                         "[Custom] Max consecutive losses (%d) – entering cooldown for %d rounds",
                         cst.consecutive_losses,
                         cst.cooldown_after_loss,
                     )
                     cst.start_loss_cooldown()
-                    cst.reset()
+                    cst.enter_cooldown_reset()
                     self.strategy_active = False
                 else:
                     logger.info("[Custom] Max consecutive losses – stopping")
@@ -528,6 +540,8 @@ class BotEngine:
             # Check window loss limit
             if cst.should_stop_for_window_losses():
                 if cst.cooldown_after_loss > 0:
+                    # Window loss limit hit with cooldown: drop signal, pause for N rounds,
+                    # then start fresh looking for new signals
                     logger.info(
                         "[Custom] Window loss limit (%d/%d in last %d) – entering cooldown for %d rounds",
                         cst.losses_in_window(),
@@ -536,7 +550,7 @@ class BotEngine:
                         cst.cooldown_after_loss,
                     )
                     cst.start_loss_cooldown()
-                    cst.reset()
+                    cst.enter_cooldown_reset()
                     self.strategy_active = False
                 else:
                     logger.info(
@@ -565,6 +579,9 @@ class BotEngine:
 
     def _analyze_signals(self):
         if self.strategy_active or self.tracker.in_hotstreak():
+            return
+        # Skip signal analysis entirely during cooldown
+        if self.custom and self.custom.in_cooldown():
             return
 
         triggered_signals: List[str] = []

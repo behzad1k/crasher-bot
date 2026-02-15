@@ -94,16 +94,20 @@ class CustomState:
     # ── Cooldown ───────────────────────────────────────────────────
 
     def start_cooldown(self):
-        """Start the post-win cooldown period."""
+        """Start the post-win cooldown period (triggered by stop-profit).
+        Drops current signal/monitoring and suppresses signal checking for N rounds."""
         if self.cooldown_after_win > 0:
             self.cooldown_remaining = self.cooldown_after_win
             self._cooldown_type = "win"
+            self.stop_monitoring()
 
     def start_loss_cooldown(self):
-        """Start the post-loss cooldown period (triggered by max losses or window losses)."""
+        """Start the post-loss cooldown period (triggered by max losses or window losses).
+        Drops current signal/monitoring and suppresses signal checking for N rounds."""
         if self.cooldown_after_loss > 0:
             self.cooldown_remaining = self.cooldown_after_loss
             self._cooldown_type = "loss"
+            self.stop_monitoring()
 
     def tick_cooldown(self):
         """Decrement cooldown by one round. Call once per round."""
@@ -191,6 +195,16 @@ class CustomState:
         self.stop_monitoring()
         self.cooldown_remaining = 0
         self._cooldown_type = ""
+
+    def enter_cooldown_reset(self):
+        """Reset betting state and drop signals, but preserve total_wins and total_profit
+        for informational purposes. Used when entering cooldown (not a full disable)."""
+        self.current_bet = self.base_bet
+        self.consecutive_losses = 0
+        self.waiting_for_result = False
+        self.is_active = False
+        self.recent_outcomes = []
+        self.stop_monitoring()
 
     def record_outcome(self, outcome: str):
         self.recent_outcomes.append(outcome)
