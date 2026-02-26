@@ -1,0 +1,173 @@
+{
+  "username": "bhzd1k@gmail.com",
+  "password": "behzaD!1",
+  "game_url": "https://1000bet.in/en/play/real/crasher-fastgames",
+  "max_loss": 10000000,
+  "import_recent_on_new_session": true,
+  "chromedriver_path": "./chromedriver_cache/chromedriver",
+  "strategies": [
+    {
+      "name": "2x_Strategy",
+      "base_bet": 16000,
+      "auto_cashout": 2.0,
+      "trigger_threshold": 2.01,
+      "trigger_count": 10,
+      "max_consecutive_losses": 7,
+      "bet_multiplier": 2.0,
+      "enabled": true
+    },
+    {
+      "name": "3x_Strategy",
+      "base_bet": 1800.0,
+      "auto_cashout": 3.0,
+      "trigger_threshold": 3.01,
+      "trigger_count": 17,
+      "max_consecutive_losses": 16,
+      "bet_multiplier": 1.5,
+      "enabled": true
+    },
+    {
+      "name": "4x_Strategy",
+      "base_bet": 1850,
+      "auto_cashout": 4.0,
+      "trigger_threshold": 4.01,
+      "trigger_count": 23,
+      "max_consecutive_losses": 21,
+      "bet_multiplier": 1.333333,
+      "enabled": true
+    },
+    {
+      "name": "5x_Strategy",
+      "base_bet": 1500.0,
+      "auto_cashout": 5.0,
+      "trigger_threshold": 5.01,
+      "trigger_count": 29,
+      "max_consecutive_losses": 26,
+      "bet_multiplier": 1.25,
+      "enabled": true
+    },
+    {
+      "name": "6x_Strategy",
+      "base_bet": 2000.0,
+      "auto_cashout": 6.0,
+      "trigger_threshold": 6.01,
+      "trigger_count": 37,
+      "max_consecutive_losses": 29,
+      "bet_multiplier": 1.2,
+      "enabled": true
+    },
+    {
+      "name": "7x_Strategy",
+      "base_bet": 1500.0,
+      "auto_cashout": 7.0,
+      "trigger_threshold": 7.01,
+      "trigger_count": 42,
+      "max_consecutive_losses": 35,
+      "bet_multiplier": 1.166667,
+      "enabled": true
+    },
+    {
+      "name": "8x_Strategy",
+      "base_bet": 1300.0,
+      "auto_cashout": 8.0,
+      "trigger_threshold": 8.01,
+      "trigger_count": 47,
+      "max_consecutive_losses": 41,
+      "bet_multiplier": 1.142857,
+      "enabled": true
+    },
+    {
+      "name": "9x_Strategy",
+      "base_bet": 1300.0,
+      "auto_cashout": 9.0,
+      "trigger_threshold": 9.01,
+      "trigger_count": 54,
+      "max_consecutive_losses": 45,
+      "bet_multiplier": 1.125,
+      "enabled": true
+    },
+    {
+      "name": "10x_Strategy",
+      "base_bet": 1300.0,
+      "auto_cashout": 10.0,
+      "trigger_threshold": 10.01,
+      "trigger_count": 61,
+      "max_consecutive_losses": 49,
+      "bet_multiplier": 1.111111,
+      "enabled": true
+    },
+    {
+      "name": "11x_Strategy",
+      "base_bet": 1300,
+      "auto_cashout": 11.0,
+      "trigger_threshold": 11.01,
+      "trigger_count": 68,
+      "max_consecutive_losses": 53,
+      "bet_multiplier": 1.1,
+      "enabled": true
+    },
+    {
+      "name": "12x_Strategy",
+      "base_bet": 1000,
+      "auto_cashout": 12.0,
+      "trigger_threshold": 12.01,
+      "trigger_count": 72,
+      "max_consecutive_losses": 59,
+      "bet_multiplier": 1.090909,
+      "enabled": true
+    },
+    {
+      "name": "13x_Strategy",
+      "base_bet": 1000.0,
+      "auto_cashout": 13.0,
+      "trigger_threshold": 13.01,
+      "trigger_count": 80,
+      "max_consecutive_losses": 63,
+      "bet_multiplier": 1.083333,
+      "enabled": true
+    },
+    {
+      "name": "14x_Strategy",
+      "base_bet": 1000,
+      "auto_cashout": 14.0,
+      "trigger_threshold": 14.01,
+      "trigger_count": 86,
+      "max_consecutive_losses": 67,
+      "bet_multiplier": 1.076923,
+      "enabled": true
+    },
+    {
+      "name": "15x_Strategy",
+      "base_bet": 1000,
+      "auto_cashout": 15.0,
+      "trigger_threshold": 15.01,
+      "trigger_count": 95,
+      "max_consecutive_losses": 70,
+      "bet_multiplier": 1.071429,
+      "enabled": true
+    }
+  ],
+  "custom_strategy": {
+    "base_bet": 10000.0,
+    "auto_cashout": 2.0,
+    "max_consecutive_losses": 2,
+    "max_losses_in_window": 2,
+    "loss_check_window": 5,
+    "bet_multiplier": 1.0,
+    "stop_profit_count": 0,
+    "cooldown_after_win": 0,
+    "cooldown_after_loss": 0,
+    "signal_confirm_threshold": 3.0,
+    "signal_confirm_count": 3,
+    "signal_confirm_window": 5,
+    "signal_monitor_rounds": 20,
+    "activate_on_strong_hotstreak": true,
+    "activate_on_weak_hotstreak": false,
+    "activate_on_rule_of_17": true,
+    "activate_on_pre_streak_pattern": true,
+    "activate_on_possible_chain": true,
+    "activate_on_high_deviation_10": true,
+    "activate_on_high_deviation_15": false,
+    "enabled": false
+  }
+}
